@@ -64,7 +64,7 @@ nco_deinit  ()
             void
 nco_isr     ()
             {
-            if(PIR7bits.NCO1IF){
+            if(PIE7bits.NCO1IE && PIR7bits.NCO1IF){
                 PIR7bits.NCO1IF = 0;
                 m_count += 16; //leave lower 4bits = 0
             }

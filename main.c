@@ -26,7 +26,7 @@ MCLR/RA3 |4     11| RA2 F
 #include "nco.h" //delays
 #include "pmd.h" //module power
 #include "pwr.h" //sleep/idle, reset flags
-//#include "nvm.h" //write flash
+#include "nvm.h" //read/write flash
 #include "pwm.h"
 #include "tmr1.h"
 
@@ -53,18 +53,23 @@ const uint8_t digit_table[] = {
     //A b C c d E F g H h i I J L l n O o P q r S U u y
 };
 
-
+//called from timer1 isr
 void update_digits(void){
-    //keep track of what digit to display
-    static uint8_t digitn;
-    //set timer1 overflow in 2ms
-    tmr1_tmrset( 0 - 1000 );
-    //stop previous digit driver
-    pwm_stop( digits[ digitn ].pwmn );
-    //next digit - 0,1,2,0,...
-    if( ++digitn > 2 ) digitn = 0;
-    //get segment data
-    uint8_t dat = digits[ digitn ].segdata;
+    //keep track of what digit to display, display in sequence
+    static uint8_t n;
+
+    //set timer1 overflow in 4ms (83Hz per digit)
+    tmr1_set( 0 - 2000 );
+
+    //stop previous digit driver (pin back to LAT value, which is off)
+    pwm_stop( digits[ n ].pwmn );
+
+    //advance to next digit - 0,1,2,0,1,2,...
+    if( ++n >= sizeof(digits)/sizeof(digits[0]) ) n = 0;
+
+    //get segment data for current digit
+    uint8_t dat = digits[ n ].segdata;
+
     //turn on/off segments
     if( dat & 0b10000000 ) pin_on( ledDP ); else pin_off( ledDP );
     if( dat & 0b01000000 ) pin_on( ledA ); else pin_off( ledA );
@@ -74,22 +79,30 @@ void update_digits(void){
     if( dat & 0b00000100 ) pin_on( ledE ); else pin_off( ledE );
     if( dat & 0b00000010 ) pin_on( ledF ); else pin_off( ledF );
     if( dat & 0b00000001 ) pin_on( ledG ); else pin_off( ledG );
-    //update pwm duty
-    if( digits[ digitn ].brightness ){
-        pwm_duty( digits[ digitn ].pwmn, digits[ digitn ].brightness );
-        digits[ digitn ].brightness = 0; //mark as being set
+
+    //update pwm duty if brightness value changed (changed if not 0)
+    if( digits[ n ].brightness ){
+        pwm_duty( digits[ n ].pwmn, digits[ n ].brightness );
+        digits[ n ].brightness = 0; //mark as being set
         //so no need to set every time through
     }
-    //turn on digit
-    pwm_resume( digits[ digitn ].pwmn );
+
+    //turn on current digit (pin set to pwm output)
+    pwm_resume( digits[ n ].pwmn );
+}
+
+//to 3 digit decimal, 0-999
+void todecimal(uint16_t n){
+    if( n > 999 ) return;
+    digits[0].segdata = digit_table[ n / 100 ];
+    digits[1].segdata = digit_table[ (n / 10) % 10 ];
+    digits[2].segdata = digit_table[ n % 10 ];
 }
 
 
 // MAIN
 //=============================================================================
 void main(void) {
-
-    // init stuff
 
     //store reset cause in case want to check later
     //calling this function at anytime will return the latest
@@ -105,43 +118,58 @@ void main(void) {
     //pins now in reset state (all input, harmless)
     //design any connected devices so reset state leaves all in safe state
     pin_init_all();
-    //pins now in init state- everything is off, but ready to go
+    //pins now in init state- all pins setup according to what is set in
+    //mypins.h, and all pins in 'off' state
 
     //setup osc
-    osc_hffreq(osc_HFFREQ32);           //set HF freq
-    osc_set(osc_HFINTOSC, osc_DIV1);    //set src, divider- HFINT, /1
+    osc_hffreq(osc_HFFREQ16);           //set HF freq
+    osc_set(osc_HFINTOSC2X, osc_DIV1);  //set src, divider- HFINT, /1
 
-
+    //get pwm for led common drivers
     digits[0].pwmn = pwm_init( ledC1, false );//normal polarity (high=on)
     digits[1].pwmn = pwm_init( ledC2, false );//normal polarity (high=on)
     digits[2].pwmn = pwm_init( ledC3, false );//normal polarity (high=on)
 
-    digits[0].brightness = 512;
-    digits[1].brightness = 512;
-    digits[2].brightness = 512;
+    //set initial brightness
+    digits[0].brightness = 1023;
+    digits[1].brightness = 1023;
+    digits[2].brightness = 1023;
 
-    tmr1_reinit(); //also enables power to timer1
-    tmr1_clksrc( tmr1_MFINTOSC_500khz );
-    tmr1_pre( tmr1_PRE1 );
-    tmr1_tmrset( 0 - 1000 ); //2ms
+    //setup timer1 to update digits via irq
+    tmr1_init( tmr1_MFINTOSC_500khz, tmr1_PRE1 );
     tmr1_irqon( update_digits ); //set isr function, enable irq
     tmr1_on( true );
+
+    //get display address (0, 3, 6, 9, 12, ..., 507)
+    uint16_t myaddress = nvm_read( nvm_ID0 );
+    if( myaddress == 0x3FFF ){
+        uint32_t r = nvm_mui();
+        //turn 32bit number into 512-998
+        //0-871 -> 512-998
+        r = r % 487; //0-486
+        r += 512; //512-998
+        myaddress = r;
+    }
+
+    //testing
+
+
+    //display my address briefly
+    todecimal( myaddress );
+    nco_waits( 3 );
+
 
 
     //count up 0-999
     nco_t_t dly = nco_setus( 100000 );
 
     uint16_t n = 0;
-    uint8_t n0 = 0, n1 = 0, n2 = 0;
-
     for( ; ; ){
         if( nco_expired(dly) ){
             if( ++n > 999 ) n = 0;
-            n0 = n / 100; n1 = (n / 10) % 10; n2 = n % 10;
+            todecimal( n );
+            digits[1].segdata |= 0x80; //add DP
             nco_restart( dly );
-            digits[0].segdata = digit_table[n0];
-            digits[1].segdata = digit_table[n1]|0x80; //add DP
-            digits[2].segdata = digit_table[n2];
         }
     }
 

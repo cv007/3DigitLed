@@ -23,14 +23,11 @@ typedef enum {
 
 //=============================================================================
 void    tmr1_deinit     (void);
-void    tmr1_reinit     (void);
-void    tmr1_clksrc     (tmr1_clksrc_t);
-void    tmr1_pre        (tmr1_pre_t);
+void    tmr1_init       (tmr1_clksrc_t, tmr1_pre_t);
 void    tmr1_stop       (bool);
 void    tmr1_on         (bool);
-bool    tmr1_ison       (void);
-void    tmr1_tmrset     (uint16_t);
-uint16_t tmr1_tmrget    (void);
+void    tmr1_set     (uint16_t);
+uint16_t tmr1_get    (void);
 void    tmr1_irqon      (void(*)(void));
 void    tmr1_irqoff     (void);
 

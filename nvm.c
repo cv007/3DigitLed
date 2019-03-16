@@ -6,7 +6,7 @@
 
 //DCI area in flash
 //=============================================================================
-enum { 
+enum {
     ERSIZ = 0x8200,     //Erase Row Size
     WLSIZ,              //Number of write latches
     URSIZ,              //Number of User Rows
@@ -40,10 +40,10 @@ m_init      (void)
 // if module already powered on, then another function is in use so do not
 // power off when done (or the nvm info will be lost, like latch data)
 //=============================================================================
-            uint16_t 
+            uint16_t
 nvm_read    (uint16_t waddr)
             {
-            if( m_ison == false ) pmd_on( pmd_NVM ); 
+            if( m_ison == false ) pmd_on( pmd_NVM );
             NVMADR = waddr;
             NVMCON1 = (waddr & 0x8000) ? 0x41 : 1;  //nvmregs bit6
             uint16_t dat = NVMDAT;                  //get before power off
@@ -69,12 +69,12 @@ nvm_writeNW (uint16_t waddr, uint16_t* pwdata, uint8_t n)
             uint8_t  idx = waddr - row;
             //program a row until n==0
             for(; n;){
-                m_init(); //so nvm_read does not turn off nvm 
+                m_init(); //so nvm_read does not turn off nvm
                 //save first word in row, so we can program it again
                 //when done writing the latches- just to cover the case
                 //when writing to id0-3- which will fail if the update
                 //write is not a writable address
-                uint16_t dat0; 
+                uint16_t dat0;
                 //fill latches with old data or new data
                 for( uint8_t i = 0; i < m_row_size; i++ ){
                     uint16_t ndat;
@@ -84,10 +84,10 @@ nvm_writeNW (uint16_t waddr, uint16_t* pwdata, uint8_t n)
                     if( 0 == nvm_pgm( i, ndat ) ) return false;
                 }
                 //erase and write to first latch again with rowupdate
-                if( 0 == (nvm_pgm( row, nvm_ROWERASE ) && 
+                if( 0 == (nvm_pgm( row, nvm_ROWERASE ) &&
                           nvm_pgm( row, dat0|nvm_ROWUPDATE )) ) return false;
                 row += m_row_size;
-                idx = 0;               
+                idx = 0;
             }
             return true;
 }
@@ -108,7 +108,7 @@ nvm_pgm     (uint16_t waddr, uint16_t wdata)
             m_init();               //if not already powered on, do so
             NVMADR = waddr;
             NVMDAT = wdata;
-            NVMCON1= waddr & 0x8000 ? 0x40 : 0; //nvmregs bit6            
+            NVMCON1= waddr & 0x8000 ? 0x40 : 0; //nvmregs bit6
             if(wdata & nvm_ROWERASE) NVMCON1bits.FREE = 1;
             else if( 0 == (wdata & nvm_ROWUPDATE) ) NVMCON1bits.LWLO = 1;
             uint8_t irqs = INTCON;  //save irq status
@@ -129,7 +129,29 @@ nvm_pgm     (uint16_t waddr, uint16_t wdata)
             if( wdata & nvm_ROWUPDATE ){
                 pmd_off( pmd_NVM );
                 m_ison = false;
-            }                 
+            }
             return (err == 0);
             }
 
+// come up with a unique id from MUID bytes
+// 9 words from 0x8100-8108, but seems to be bytes only (bits 8-13 are 0)
+// example muid from 16f15325- 0x21,0x71,0x58,0x56,0x50,0x71,0x46,0x10,0x60
+//=============================================================================
+            uint32_t
+nvm_mui     (void)
+            {
+            /*
+            FNV-1 hash
+            hash = FNV_offset_basis (2166136261)
+            for each byte_of_data to be hashed
+            hash = hash × FNV_prime (16777619)
+            hash = hash XOR byte_of_data
+            return hash
+            */
+            uint32_t ret = 2166136261;
+            for( uint8_t i = 0; i < 9; i++){
+                ret = ret * 16777619;
+                ret = ret ^ nvm_read( 0x8100 + i );
+            }
+            return ret;
+            }

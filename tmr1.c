@@ -10,25 +10,13 @@ tmr1_deinit (void)
             pmd_off( pmd_TMR1 );
             }
 
-// reset all timer1 regsiters via pmd
+// reset all timer1 regsiters via pmd, set clock source, prescale
 //=============================================================================
             void
-tmr1_reinit (void)
+tmr1_init   (tmr1_clksrc_t src, tmr1_pre_t pre)
             {
             pmd_reset( pmd_TMR1 );
-            }
-
-//=============================================================================
-            void
-tmr1_clksrc (tmr1_clksrc_t src)
-            {
             T1CLK = src;
-            }
-
-//=============================================================================
-            void
-tmr1_pre    (tmr1_pre_t pre)
-            {
             T1CONbits.CKPS = pre;
             }
 
@@ -55,21 +43,14 @@ tmr1_on     (bool tf)
             }
 
 //=============================================================================
-            bool
-tmr1_ison   (void)
-            {
-            return T1CONbits.ON;
-            }
-
-//=============================================================================
             void
-tmr1_tmrset (uint16_t v){
+tmr1_set    (uint16_t v){
             TMR1 = v;
             }
 
 //=============================================================================
             uint16_t
-tmr1_tmrget (void)
+tmr1_get    (void)
             {
             return TMR1;
             }
@@ -99,7 +80,7 @@ tmr1_irqoff (void)
             void
 tmr1_isr    (void)
             {
-            if(PIE4bits.TMR1IE){
+            if(PIE4bits.TMR1IE && PIR4bits.TMR1IF){
                 PIR4bits.TMR1IF = 0;
                 if( isrfp ) isrfp();
             }

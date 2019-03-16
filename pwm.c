@@ -35,7 +35,7 @@ pwm_init    (pin_t* p, bool inv)
                 tmr2_on( true );
             }
             pwm_duty( i, 0 );           //init duty cycle
-            pwm_resume( i );            //setup pps out
+            pin_ppsout( p, pps_PWM3OUT+i );//setup pps out
             *(&PWM3CON + m_pwm_regs[i]) = inv ? 0x90 : 0x80; //on, polarity
             return (pwmn_t)i;
             }
@@ -63,7 +63,7 @@ pwm_duty    (pwmn_t n, uint16_t dc) //0-1023 -> H<7:0>L<7:6> (<<6)
             void
 pwm_stop    ( pwmn_t n )
             {
-            pin_ppsout( m_pwm_inuse[n], pps_LATOUT );
+            pin_ppsoutF( m_pwm_inuse[n], pps_LATOUT );
             }
 
 //resume pin output
@@ -71,6 +71,6 @@ pwm_stop    ( pwmn_t n )
             void
 pwm_resume  ( pwmn_t n )
             {
-            pin_ppsout( m_pwm_inuse[n], pps_PWM3OUT+n );
+            pin_ppsoutF( m_pwm_inuse[n], pps_PWM3OUT+n );
             }
 

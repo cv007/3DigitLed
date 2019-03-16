@@ -28,6 +28,7 @@ uint16_t    nvm_read    (uint16_t);
 bool        nvm_writeW  (uint16_t, uint16_t); //write single word
 bool        nvm_writeNW (uint16_t, uint16_t*, uint8_t); //write n words
 bool        nvm_pgm     (uint16_t, uint16_t); //write latch, erase, row pgm
+uint32_t    nvm_mui     (void); //come up with a unique id from MUID bytes
 
 //=============================================================================
 /*
