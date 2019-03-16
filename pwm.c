@@ -35,7 +35,7 @@ pwm_init    (pin_t* p, bool inv)
                 tmr2_on( true );
             }
             pwm_duty( i, 0 );           //init duty cycle
-            pwm_resume( p );            //setup pps out
+            pwm_resume( i );            //setup pps out
             *(&PWM3CON + m_pwm_regs[i]) = inv ? 0x90 : 0x80; //on, polarity
             return (pwmn_t)i;
             }
