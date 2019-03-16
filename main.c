@@ -30,9 +30,6 @@ MCLR/RA3 |4     11| RA2 F
 #include "pwm.h"
 #include "tmr1.h"
 
-pwmn_t ledC1pwm;
-pwmn_t ledC2pwm;
-pwmn_t ledC3pwm;
 
 typedef struct {
     uint16_t brightness; //1-1023, 0=no change
@@ -127,10 +124,11 @@ void main(void) {
     tmr1_clksrc( tmr1_MFINTOSC_500khz );
     tmr1_pre( tmr1_PRE1 );
     tmr1_tmrset( 0 - 1000 ); //2ms
-    tmr1_irqon( update_digits );
+    tmr1_irqon( update_digits ); //set isr function, enable irq
     tmr1_on( true );
 
 
+    //count up 0-999
     nco_t_t dly = nco_setus( 100000 );
 
     uint16_t n = 0;
@@ -141,8 +139,8 @@ void main(void) {
             if( ++n > 999 ) n = 0;
             n0 = n / 100; n1 = (n / 10) % 10; n2 = n % 10;
             nco_restart( dly );
-            digits[0].segdata = digit_table[n0]|0x80;
-            digits[1].segdata = digit_table[n1];
+            digits[0].segdata = digit_table[n0];
+            digits[1].segdata = digit_table[n1]|0x80; //add DP
             digits[2].segdata = digit_table[n2];
         }
     }
