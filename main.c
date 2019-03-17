@@ -1,5 +1,13 @@
 /*------------------------------------------------------------------------------
-    PIC16 Curiosity Board
+ ___  _  _  ___  ___
+|_ _|| \| || __|/ _ \
+ | | | .` || _|| (_) |
+|___||_|\_||_|  \___/
+
+
+ 3 digit led driver - 0.28", CA,  22.5mm x 10mm, 12pins (no pin6)
+
+ PIC16 Curiosity Board
 
            16F15325
          ----------
@@ -30,7 +38,7 @@ MCLR/RA3 |4     11| RA2 F
 #include "pwm.h"
 #include "tmr1.h"
 
-
+//digit data
 typedef struct {
     uint16_t brightness; //1-1023, 0=no change
     uint8_t segdata;
@@ -38,8 +46,9 @@ typedef struct {
 } digit_t;
 digit_t digits[3];
 
-const uint8_t digit_table[] = {
+const uint8_t digit_table_hex[] = {
     //DP A B C D E F G
+    // 0-9
     0b01111110, //0
     0b00110000, //1
     0b01101101, //2
@@ -49,14 +58,115 @@ const uint8_t digit_table[] = {
     0b01011111, //6
     0b01110000, //7
     0b01111111, //8
-    0b01110011, //9
+    0b01111011, //9
+    //hex A - F
     0b01110111, //A
     0b00011111, //b
     0b01001110, //C
     0b00111101, //d
     0b01001111, //E
-    0b01000111 //F
+    0b01000111  //F
     //A b C c d E F g H h i I J L l n O o P q r S U u y
+};
+const uint8_t digit_table_ascii[] = {
+    //DP A B C D E F G
+    // 32-127
+    0b00000000, //32 space
+    0b0,        //33 !
+    0b00100010, //34 "
+    0b0,        //35 #
+    0b0,        //36 $
+    0b0,        //37 %
+    0b0,        //38 &
+    0b00000010, //39 '
+    0b0,        //40 (
+    0b0,        //41 )
+    0b0,        //42 *
+    0b0,        //43 +
+    0b00000100, //44 ,
+    0b00000001, //45 -
+    0b10000000, //46 . (dp)
+    0b0,        //47 /
+    0b01111110, //48 0
+    0b00110000, //49 1
+    0b01101101, //50 2
+    0b01111001, //51 3
+    0b00110011, //52 4
+    0b01011011, //53 5
+    0b01011111, //54 6
+    0b01110000, //55 7
+    0b01111111, //56 8
+    0b01111011, //57 9
+    0b0,        //58 :
+    0b0,        //59 ;
+    0b0,        //60 <
+    0b00001001, //61 =
+    0b0,        //62 >
+    0b0,        //63 ?
+    0b0,        //64 @
+    0b01110111, //65 A
+    0b00011111, //66 B (b)
+    0b01001110, //67 C
+    0b00111101, //68 D (d)
+    0b01001111, //69 E
+    0b01000111, //70 F
+    0b01111011, //71 G (9)
+    0b00110111, //72 H
+    0b00110000, //73 I (1)
+    0b00111100, //74 J
+    0b0,        //75 K
+    0b00001110, //76 L
+    0b0,        //77 M
+    0b0,        //78 N
+    0b01111110, //79 O (0)
+    0b01100111, //80 P
+    0b0,        //81 Q
+    0b0,        //82 R
+    0b01011011, //83 S (5)
+    0b0,        //84 T
+    0b00111110, //85 U
+    0b0,        //86 V
+    0b0,        //87 W
+    0b0,        //88 X
+    0b00100111, //89 Y
+    0b0,        //90 Z
+    0b01001110, //91 [ (C)
+    0b0,        //92 slash
+    0b01111000, //93 ]
+    0b01000000, //94 ^
+    0b0,        //95 _
+    0b00000010, //96 `
+    0b01110111, //97 a (A)
+    0b00011111, //98 b
+    0b00001101, //99 c
+    0b00111101, //100 d
+    0b01001111, //101 e (E)
+    0b01000111, //102 f (F)
+    0b01111011, //103 g (9)
+    0b00010111, //104 h
+    0b00010000, //105 i
+    0b00111100, //106 j (J)
+    0b0,        //107 k
+    0b00001110, //108 l (L)
+    0b0,        //109 m
+    0b00010101, //110 n
+    0b00011101, //111 o
+    0b01100111, //112 p (P)
+    0b01110011, //113 q
+    0b00000101, //114 r
+    0b01011011, //115 s *5)
+    0b0,        //116 t
+    0b00011100, //117 u
+    0b0,        //118 v
+    0b0,        //119 w
+    0b0,        //120 x
+    0b00100111, //121 y (Y)
+    0b0,        //122 z
+    0b0,        //123 {
+    0b0,        //124 |
+    0b0,        //125 }
+    0b0,        //126 ~
+    0b0         //127
 };
 
 //called from timer1 isr
@@ -100,16 +210,22 @@ void update_digits(void){
 //to 3 digit decimal, 0-999
 void show0_999(uint16_t n){
     if( n > 999 ) return;
-    digits[0].segdata = digit_table[ n / 100 ];
-    digits[1].segdata = digit_table[ (n / 10) % 10 ];
-    digits[2].segdata = digit_table[ n % 10 ];
+    digits[0].segdata = digit_table_hex[ n / 100 ];
+    digits[1].segdata = digit_table_hex[ (n / 10) % 10 ];
+    digits[2].segdata = digit_table_hex[ n % 10 ];
 }
 //to 3 digit hex, 0-FFF
 void show0_FFF(uint16_t n){
     if( n > 0xFFF ) return;
-    digits[0].segdata = digit_table[ (n>>8) & 0xF ];
-    digits[1].segdata = digit_table[ (n>>4) & 0xF ];
-    digits[2].segdata = digit_table[ n & 0xF ];
+    digits[0].segdata = digit_table_hex[ (n>>8) & 0xF ];
+    digits[1].segdata = digit_table_hex[ (n>>4) & 0xF ];
+    digits[2].segdata = digit_table_hex[ n & 0xF ];
+}
+//clear display
+void show_clr(void){
+    digits[0].segdata = 0;
+    digits[1].segdata = 0;
+    digits[2].segdata = 0;
 }
 
 // MAIN
@@ -143,9 +259,9 @@ void main(void) {
     digits[2].pwmn = pwm_init( ledC3, false );//normal polarity (high=on)
 
     //set initial brightness
-    digits[0].brightness = 1023;
-    digits[1].brightness = 1023;
-    digits[2].brightness = 1023;
+    digits[0].brightness = 256;
+    digits[1].brightness = 256;
+    digits[2].brightness = 256;
 
     //setup timer1 to update digits via irq
     tmr1_init( tmr1_MFINTOSC_500khz, tmr1_PRE1 );
@@ -171,8 +287,15 @@ void main(void) {
     nco_waits( 3 );
 
 
+    //show all ascii chars
+    show_clr();
+    for( uint8_t i = 32, j = 0; i < 128; i++ ){
+        digits[j++].segdata = digit_table_ascii[i-32];
+        nco_waitms( 200 );
+        if( j>2 ) j=0;
+    }
 
-    //count up 0-999
+    //count up 0-FFF
     nco_t_t dly = nco_setus( 100000 );
 
     uint16_t n = 0;
