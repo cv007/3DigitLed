@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 //available timers
-typedef enum { 
+typedef enum {
     nco_T0, nco_T1, nco_T2, nco_T3,
     nco_T4, nco_T5, nco_T6, nco_T7,
     nco_TNONE
@@ -14,7 +14,7 @@ typedef enum {
 //init is automatic, deinit if no longer want nco running
 void    nco_deinit  (void);
 
-//us limited to 0xF1000000 4,043,309,056 
+//us limited to 0xF1000000 4,043,309,056
 //ms limited to 0x3D0000 3,997,696
 //s limited to 4043
 
@@ -28,7 +28,7 @@ void    nco_release (nco_t_t);
 
 //blocking
 void    nco_waitus  (uint32_t);
-void    nco_waitms  (__uint24);
+void    nco_waitms  (uint32_t);
 void    nco_waits   (uint16_t);
 
 /*
@@ -48,7 +48,7 @@ examples-
 
     //do something, check if timer expired
     if( nco_expired(dly) ){
-        do something;  
+        do something;
         nco_restart( dly ); //restart using same count
     }
 

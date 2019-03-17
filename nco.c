@@ -159,28 +159,30 @@ nco_release (nco_t_t t)
             void
 nco_waitus  (uint32_t us)
             {
-            if(m_started == false) m_init();
+            bool b = m_started; //if we started it, we will deinit
+            if(b == false) m_init();
             if( us >= 0xF1000000 ) us = 0xF1000000; //limit
             m_timers[nco_TNONE].start = nco_count();
             m_timers[nco_TNONE].count = us;
             m_timers[nco_TNONE].running = true;
             while( nco_expired( nco_TNONE ) == false);
+            if(b == false) nco_deinit(); //deinit if we did the init
             }
 
-// blocking wait for ms (uses last timer struct- nco_TNONE)
+// blocking wait for ms
 //=============================================================================
             void
-nco_waitms  (__uint24 ms)
+nco_waitms  (uint32_t ms)
             {
             if( ms >= 0x3D0000 ) ms = 0x3D0000;
-            nco_waitus(  (uint32_t)ms * 1000 );
+            nco_waitus(  (uint32_t)ms * 1000ul );
             }
 
-// blocking wait for s (uses last timer struct- nco_TNONE)
+// blocking wait for s
 //=============================================================================
             void
 nco_waits   (uint16_t s)
             {
             if(s > 4043) s = 4043;
-            nco_waitus( (uint32_t)s * 1000 * 1000);
+            nco_waitms( (uint32_t)s * 1000ul);
             }

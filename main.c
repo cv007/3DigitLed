@@ -50,6 +50,12 @@ const uint8_t digit_table[] = {
     0b01110000, //7
     0b01111111, //8
     0b01110011, //9
+    0b01110111, //A
+    0b00011111, //b
+    0b01001110, //C
+    0b00111101, //d
+    0b01001111, //E
+    0b01000111 //F
     //A b C c d E F g H h i I J L l n O o P q r S U u y
 };
 
@@ -92,13 +98,19 @@ void update_digits(void){
 }
 
 //to 3 digit decimal, 0-999
-void todecimal(uint16_t n){
+void show0_999(uint16_t n){
     if( n > 999 ) return;
     digits[0].segdata = digit_table[ n / 100 ];
     digits[1].segdata = digit_table[ (n / 10) % 10 ];
     digits[2].segdata = digit_table[ n % 10 ];
 }
-
+//to 3 digit hex, 0-FFF
+void show0_FFF(uint16_t n){
+    if( n > 0xFFF ) return;
+    digits[0].segdata = digit_table[ (n>>8) & 0xF ];
+    digits[1].segdata = digit_table[ (n>>4) & 0xF ];
+    digits[2].segdata = digit_table[ n & 0xF ];
+}
 
 // MAIN
 //=============================================================================
@@ -122,8 +134,8 @@ void main(void) {
     //mypins.h, and all pins in 'off' state
 
     //setup osc
-    osc_hffreq(osc_HFFREQ16);           //set HF freq
-    osc_set(osc_HFINTOSC2X, osc_DIV1);  //set src, divider- HFINT, /1
+    osc_hffreq(osc_HFFREQ32);           //set HF freq
+    osc_set(osc_HFINTOSC, osc_DIV1);  //set src, divider- HFINT, /1
 
     //get pwm for led common drivers
     digits[0].pwmn = pwm_init( ledC1, false );//normal polarity (high=on)
@@ -155,7 +167,7 @@ void main(void) {
 
 
     //display my address briefly
-    todecimal( myaddress );
+    show0_999( myaddress );
     nco_waits( 3 );
 
 
@@ -166,8 +178,8 @@ void main(void) {
     uint16_t n = 0;
     for( ; ; ){
         if( nco_expired(dly) ){
-            if( ++n > 999 ) n = 0;
-            todecimal( n );
+            if( ++n > 0xFFF ) n = 0;
+            show0_FFF( n );
             digits[1].segdata |= 0x80; //add DP
             nco_restart( dly );
         }
