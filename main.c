@@ -72,17 +72,16 @@ void update_digits(void){
     static uint8_t n;
 
     //CCP (65535 levels of brightness- better at low brightness than pwm)
-    //common pin back to LAT (off)
+    //common pin back to LAT value (off)
     pin_ppsoutF( digits[n].drvpin, pps_LATOUT );
     //stop timer1 and reset to 0 (so low ccp pr match values are not missed)
     tmr1_stop( true );
     tmr1_set( 0 );
-    //need to reset ccp out so can match again (default is 0/low)
+    //need to reset ccp out so can match again (reset sets output to 0/low)
     ccp1_mode( ccp1_OFF );
     //and set mode again (ccp out is now opposite match state, high)
     //but no ppsout set yet, so no high output on pin
     ccp1_mode( ccp1_COMP_CLRMATCH );
-
 
     //advance to next digit - 0,1,2,0,1,2,...
     if( ++n >= sizeof(digits)/sizeof(digits[0]) ) n = 0;
@@ -100,13 +99,11 @@ void update_digits(void){
     if( dat & 0b00000010 ) pin_on( ledF ); else pin_off( ledF );
     if( dat & 0b00000001 ) pin_on( ledG ); else pin_off( ledG );
 
-    //PWM
-    //turn on current digit (pin set to pwm output)
-    //pwm_resume( digits[ n ].pwmn );
-
-    //CCP
-    pin_ppsoutF( digits[n].drvpin, pps_CCP1OUT );
+    //set ccp pr match for brightness (when to turn off)
     ccp1_prset( digits[n].brightness );
+    //set current drive pin to ccp output (pin now driven on)
+    pin_ppsoutF( digits[n].drvpin, pps_CCP1OUT );
+    //and start timer1
     tmr1_stop( false );
 }
 
@@ -200,14 +197,14 @@ void main(void) {
         digits[1].brightness = brightness_table[i];
         digits[2].brightness = brightness_table[i];
         show0_999( i );
-        nco_waitms( 20 + 63 - i );
+        nco_waitms( 20 + 126 - i*2 );
     }
     for(uint8_t i = 63; i--; ){
         digits[0].brightness = brightness_table[i];
         digits[1].brightness = brightness_table[i];
         digits[2].brightness = brightness_table[i];
         show0_999( i );
-        nco_waitms( 20 + 63 - i );
+        nco_waitms( 20 + 126 - i*2 );
     }
     }
 
