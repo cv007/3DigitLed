@@ -20,6 +20,25 @@ MCLR/RA3 |4     11| RA2 F
  G   RC3 |7      8| RC2 c3
          ----------
 
+ using timer1 to refresh led display
+ using ccp1 to control brightness via compare match
+
+ sys clock set to 32MHz
+ timer1 set to prescale of 2
+ refresh rate per digit = 32MHz/2/65536 = 244 = 81Hz/digit
+ ccp1 setup to compare match in led display refresh isr (timer1 isr)
+ ccp1 period set to brightness value, clear on match
+ current digit common pin set to use cc1out pps
+ common pin will be on until period match, for 0-65535 levels of brightness
+ (works better than pwm for lower brightness levels)
+ brightness set from lookup table(CIE 1931), 64 values from 0-63 (to 0-65535)
+
+
+ each digit has an address
+ left digit has lowest address, then middle, then right
+ each 3digit display has 3 addresses
+ valid (user set) addresses are from 0-507 in steps of 3
+ default (unset) addresses are from 512-998 generated from factory muid
 */
 
 
@@ -31,154 +50,39 @@ MCLR/RA3 |4     11| RA2 F
 
 #include "pins.h"
 #include "osc.h"
-#include "nco.h" //delays
-#include "pmd.h" //module power
-#include "pwr.h" //sleep/idle, reset flags
-#include "nvm.h" //read/write flash
-#include "pwm.h"
-#include "tmr1.h"
+#include "nco.h"    //delays
+#include "pmd.h"    //module power
+#include "pwr.h"    //sleep/idle, reset flags
+#include "nvm.h"    //read/write flash
+#include "tmr1.h"   //display refresh
+#include "ccp1.h"   //display brightness
+#include "tables.h" //lookup tables
 
 //digit data
 typedef struct {
-    uint16_t brightness; //1-1023, 0=no change
-    uint8_t segdata;
-    pwmn_t pwmn; //digit pwn driver (number)
+    uint16_t brightness; //brightness value from table
+    uint8_t segdata;    //segment data, used in isr
+    pin_t* drvpin;      //common driver pin for digit
 } digit_t;
 digit_t digits[3];
-
-const uint8_t digit_table_hex[] = {
-    //DP A B C D E F G
-    // 0-9
-    0b01111110, //0
-    0b00110000, //1
-    0b01101101, //2
-    0b01111001, //3
-    0b00110011, //4
-    0b01011011, //5
-    0b01011111, //6
-    0b01110000, //7
-    0b01111111, //8
-    0b01111011, //9
-    //hex A - F
-    0b01110111, //A
-    0b00011111, //b
-    0b01001110, //C
-    0b00111101, //d
-    0b01001111, //E
-    0b01000111  //F
-    //A b C c d E F g H h i I J L l n O o P q r S U u y
-};
-const uint8_t digit_table_ascii[] = {
-    //DP A B C D E F G
-    // 32-127
-    0b00000000, //32 space
-    0b0,        //33 !
-    0b00100010, //34 "
-    0b0,        //35 #
-    0b0,        //36 $
-    0b0,        //37 %
-    0b0,        //38 &
-    0b00000010, //39 '
-    0b0,        //40 (
-    0b0,        //41 )
-    0b0,        //42 *
-    0b0,        //43 +
-    0b00000100, //44 ,
-    0b00000001, //45 -
-    0b10000000, //46 . (dp)
-    0b0,        //47 /
-    0b01111110, //48 0
-    0b00110000, //49 1
-    0b01101101, //50 2
-    0b01111001, //51 3
-    0b00110011, //52 4
-    0b01011011, //53 5
-    0b01011111, //54 6
-    0b01110000, //55 7
-    0b01111111, //56 8
-    0b01111011, //57 9
-    0b0,        //58 :
-    0b0,        //59 ;
-    0b0,        //60 <
-    0b00001001, //61 =
-    0b0,        //62 >
-    0b0,        //63 ?
-    0b0,        //64 @
-    0b01110111, //65 A
-    0b00011111, //66 B (b)
-    0b01001110, //67 C
-    0b00111101, //68 D (d)
-    0b01001111, //69 E
-    0b01000111, //70 F
-    0b01111011, //71 G (9)
-    0b00110111, //72 H
-    0b00110000, //73 I (1)
-    0b00111100, //74 J
-    0b0,        //75 K
-    0b00001110, //76 L
-    0b0,        //77 M
-    0b0,        //78 N
-    0b01111110, //79 O (0)
-    0b01100111, //80 P
-    0b0,        //81 Q
-    0b0,        //82 R
-    0b01011011, //83 S (5)
-    0b0,        //84 T
-    0b00111110, //85 U
-    0b0,        //86 V
-    0b0,        //87 W
-    0b0,        //88 X
-    0b00100111, //89 Y
-    0b0,        //90 Z
-    0b01001110, //91 [ (C)
-    0b0,        //92 slash
-    0b01111000, //93 ]
-    0b01000000, //94 ^
-    0b0,        //95 _
-    0b00000010, //96 `
-    0b01110111, //97 a (A)
-    0b00011111, //98 b
-    0b00001101, //99 c
-    0b00111101, //100 d
-    0b01001111, //101 e (E)
-    0b01000111, //102 f (F)
-    0b01111011, //103 g (9)
-    0b00010111, //104 h
-    0b00010000, //105 i
-    0b00111100, //106 j (J)
-    0b0,        //107 k
-    0b00001110, //108 l (L)
-    0b0,        //109 m
-    0b00010101, //110 n
-    0b00011101, //111 o
-    0b01100111, //112 p (P)
-    0b01110011, //113 q
-    0b00000101, //114 r
-    0b01011011, //115 s *5)
-    0b0,        //116 t
-    0b00011100, //117 u
-    0b0,        //118 v
-    0b0,        //119 w
-    0b0,        //120 x
-    0b00100111, //121 y (Y)
-    0b0,        //122 z
-    0b0,        //123 {
-    0b0,        //124 |
-    0b0,        //125 }
-    0b0,        //126 ~
-    0b0         //127
-};
 
 //called from timer1 isr
 void update_digits(void){
     //keep track of what digit to display, display in sequence
     static uint8_t n;
 
-    //set timer1 overflow in 4ms (83Hz per digit)
-    tmr1_set( 0 - 2000 );
+    //CCP (65535 levels of brightness- better at low brightness than pwm)
+    //common pin back to LAT (off)
+    pin_ppsoutF( digits[n].drvpin, pps_LATOUT );
+    //stop timer1 and reset to 0 (so low ccp pr match values are not missed)
+    tmr1_stop( true );
+    tmr1_set( 0 );
+    //need to reset ccp out so can match again (default is 0/low)
+    ccp1_mode( ccp1_OFF );
+    //and set mode again (ccp out is now opposite match state, high)
+    //but no ppsout set yet, so no high output on pin
+    ccp1_mode( ccp1_COMP_CLRMATCH );
 
-    //stop previous digit driver (pin back to LAT value, which is off)
-    pwm_stop( digits[ n ].pwmn );
 
     //advance to next digit - 0,1,2,0,1,2,...
     if( ++n >= sizeof(digits)/sizeof(digits[0]) ) n = 0;
@@ -196,15 +100,14 @@ void update_digits(void){
     if( dat & 0b00000010 ) pin_on( ledF ); else pin_off( ledF );
     if( dat & 0b00000001 ) pin_on( ledG ); else pin_off( ledG );
 
-    //update pwm duty if brightness value changed (changed if not 0)
-    if( digits[ n ].brightness ){
-        pwm_duty( digits[ n ].pwmn, digits[ n ].brightness );
-        digits[ n ].brightness = 0; //mark as being set
-        //so no need to set every time through
-    }
-
+    //PWM
     //turn on current digit (pin set to pwm output)
-    pwm_resume( digits[ n ].pwmn );
+    //pwm_resume( digits[ n ].pwmn );
+
+    //CCP
+    pin_ppsoutF( digits[n].drvpin, pps_CCP1OUT );
+    ccp1_prset( digits[n].brightness );
+    tmr1_stop( false );
 }
 
 //to 3 digit decimal, 0-999
@@ -250,23 +153,27 @@ void main(void) {
     //mypins.h, and all pins in 'off' state
 
     //setup osc
-    osc_hffreq(osc_HFFREQ32);           //set HF freq
+    osc_hffreq(osc_HFFREQ32);         //set HF freq
     osc_set(osc_HFINTOSC, osc_DIV1);  //set src, divider- HFINT, /1
 
-    //get pwm for led common drivers
-    digits[0].pwmn = pwm_init( ledC1, false );//normal polarity (high=on)
-    digits[1].pwmn = pwm_init( ledC2, false );//normal polarity (high=on)
-    digits[2].pwmn = pwm_init( ledC3, false );//normal polarity (high=on)
+    //CCP for brightness control
+    ccp1_init( ccp1_OFF );
 
     //set initial brightness
-    digits[0].brightness = 256;
-    digits[1].brightness = 256;
-    digits[2].brightness = 256;
+    digits[0].brightness = brightness_table[32];
+    digits[1].brightness = brightness_table[32];
+    digits[2].brightness = brightness_table[32];
+
+    //set common drive pins
+    digits[0].drvpin = ledC1;
+    digits[1].drvpin = ledC2;
+    digits[2].drvpin = ledC3;
 
     //setup timer1 to update digits via irq
-    tmr1_init( tmr1_MFINTOSC_500khz, tmr1_PRE1 );
+    tmr1_init( tmr1_FOSC, tmr1_PRE2 ); //32MHz/2/65536 = 244 = 81Hz/digit
     tmr1_irqon( update_digits ); //set isr function, enable irq
     tmr1_on( true );
+    //display refresh now on
 
     //get display address (0, 3, 6, 9, 12, ..., 507)
     uint16_t myaddress = nvm_read( nvm_ID0 );
@@ -286,12 +193,31 @@ void main(void) {
     show0_999( myaddress );
     nco_waits( 3 );
 
+    //display all brightness levels
+    for(;;){
+    for(uint8_t i = 0; i < 64; i++ ){
+        digits[0].brightness = brightness_table[i];
+        digits[1].brightness = brightness_table[i];
+        digits[2].brightness = brightness_table[i];
+        show0_999( i );
+        nco_waitms( 20 + 63 - i );
+    }
+    for(uint8_t i = 63; i--; ){
+        digits[0].brightness = brightness_table[i];
+        digits[1].brightness = brightness_table[i];
+        digits[2].brightness = brightness_table[i];
+        show0_999( i );
+        nco_waitms( 20 + 63 - i );
+    }
+    }
+
 
     //show all ascii chars
     show_clr();
     for( uint8_t i = 32, j = 0; i < 128; i++ ){
+        if( ! digit_table_ascii[i-32] ) continue;
         digits[j++].segdata = digit_table_ascii[i-32];
-        nco_waitms( 200 );
+        nco_waitms( 100 );
         if( j>2 ) j=0;
     }
 

@@ -20,23 +20,27 @@ m_osc_sysclk()
             osc_osc_t src = (osc_osc_t)OSCCON2 & 0x70;
             uint8_t div = OSCCON2 & 0x0F;
 
+            osc_sysclk = 0;
             if(src == osc_EXTOSC)         osc_sysclk = m_extfreq>>div;
             else if(src == osc_SOSC)      osc_sysclk = m_soscfreq>>div;
             else if(src == osc_EXTOSC4X)  osc_sysclk = (m_extfreq<<2)>>div;
             else if(src == osc_LFOSC)     osc_sysclk = 31000>>div;
-            //must be HFINTOSC (3 variants), or HFINTOSC2X
-            else {
-                uint8_t i = OSCFRQbits.HFFRQ;
-                uint32_t hff = 1000000;
-                if(i == osc_HFFREQ12){
-                    hff = 12000000;
-                } else {
-                    if(i > osc_HFFREQ12) i--;
-                    for( ; i; i--, hff<<=1);
-                }
-                if(src == osc_HFINTOSC2X) hff<<=1; //2x ?
-                osc_sysclk = hff>>div;
+
+            //we have to run the following even if sysclk already found
+            //to get hf int osc freq
+            uint8_t i = OSCFRQbits.HFFRQ;
+            uint32_t hff = 1000000;
+            if(i == osc_HFFREQ12){
+                hff = 12000000;
+            } else {
+                if(i > osc_HFFREQ12) i--;
+                for( ; i; i--, hff<<=1);
             }
+            osc_hfclk = hff; //store hf clk freq
+            if(src == osc_HFINTOSC2X) hff<<=1; //2x
+
+            //now store to osc_sysclk if not already set
+            if( osc_sysclk == 0 ) osc_sysclk = hff>>div;
             }
 
 // set oscillator selection with divider value

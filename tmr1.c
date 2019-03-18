@@ -25,7 +25,7 @@ tmr1_init   (tmr1_clksrc_t src, tmr1_pre_t pre)
             void
 tmr1_stop   (bool tf)
             {
-            T1CONbits.ON = tf;
+            T1CONbits.ON = !tf;
             }
 
 // also set RD16

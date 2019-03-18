@@ -32,6 +32,7 @@ typedef enum {
 // set _extfreq, _soscfreq in osc.c if these clocks are used
 //=============================================================================
 uint32_t    osc_sysclk;     //store current freq
+uint32_t    osc_hfclk;      //store current hf int osc freq
 
 bool        osc_set         (osc_osc_t, osc_div_t);
 void        osc_hffreq      (osc_hffreq_t);
