@@ -7,7 +7,7 @@
 
  3 digit led driver - 0.28", CA,  22.5mm x 10mm, 12pins (no pin6)
 
- PIC16 Curiosity Board
+ testing with PIC16 Curiosity Board
 
            16F15325
          ----------
@@ -20,25 +20,92 @@ MCLR/RA3 |4     11| RA2 F
  G   RC3 |7      8| RC2 c3
          ----------
 
- using timer1 to refresh led display
- using ccp1 to control brightness via compare match
+ _  _   ___  _____  ___  ___
+| \| | / _ \|_   _|| __|/ __|
+| .` || (_) | | |  | _| \__ \
+|_|\_| \___/  |_|  |___||___/
 
- sys clock set to 32MHz
- timer1 set to prescale of 2
- refresh rate per digit = 32MHz/2/65536 = 244 = 81Hz/digit
- ccp1 setup to compare match in led display refresh isr (timer1 isr)
- ccp1 period set to brightness value, clear on match
- current digit common pin set to use cc1out pps
- common pin will be on until period match, for 0-65535 levels of brightness
- (works better than pwm for lower brightness levels)
- brightness set from lookup table(CIE 1931), 64 values from 0-63 (to 0-65535)
+using timer1 to refresh led display
+using ccp1 to control brightness via compare match
+
+===============================================================================
+
+sys clock set to 32MHz
+timer1 set to prescale of 2
+refresh rate per digit = 32MHz/2/65536 = 244 = 81Hz/digit
+ccp1 setup to compare match in led display refresh isr (timer1 isr)
+ccp1 period set to brightness value, clear on match
+current digit common pin set to use cc1out pps
+common pin will be on until period match, for 0-65535 levels of brightness
+(works better than pwm for lower brightness levels)
+brightness set from lookup table(CIE 1931), 64 values from 0-63 (to 0-65535)
+
+===============================================================================
+
+displays are 3 digits, each digit with a fixed base address
+left digit = base address, middle = address+1, right digit = address+2
+valid addresses for displays are from 0-507 step 3 (0,3,6,...507)
+default (unset) display addresses are from 512-998 generated from factory muid
+address 999 is reserved- all digits will respond to address 999
+
+all valid incoming bytes are in the range 10,13,32-127 decimal
+(0x0A,0x0D,0x20-0x7F)
+all incoming bytes > 127 (0x80-0xFF) are ignored
+
+<cr> = 13 decimal (0x0D) = latch command OR
+<lf> = 10 decimal (0x0A) = latch command
+latch command executes previous valid command, or displays previous sent
+display data
+a latch command sent when no valid previous command will do nothing, and
+will reset state to start of command state
+
+first char after <cr> must be a command byte
+all valid commands except T,R are 4 bytes followed by <cr>
+T,R commands are both single byte, followed by data, then <cr>
+
+commands
+===============================================================================
+A000<cr>..A999<cr>  A = address set         000 - 999 = address in ascii decimal
+    set current address for all displays
+    address advances by 1 for each Text char sent EXCEPT for '.', or every
+    second Raw byte sent, resets to set address at <cr>, if address is 999,
+    address will not increment
+
+    for Text '.' character, the dp will be set for the previous digit and the
+    address will not increment
+
+Tdisplaystring...<cr>   T = text                any number of ascii characters
+Rxx...<cr>              R = raw data            2 ascii hex bytes per digit
+B000 - B063<cr>         B = brightness          000 - 063 = brightness level
+#xxx<cr>                # = other               xxx = other commands
+
+A000<cr>                // address set
+Ttest<cr>               // send text <cr>=latch
+RFF0042<cr>             // raw (2 ascii hex bytes per digit, '0'-'9','A'-'F')
+B000<cr>                // brightness 000-063
+
+#000<cr>                // display power source voltage
+#001<cr>                // display id# (digit 0 of display)
+#002<cr>                // show overrun error count
+#003<cr>                // show framing error count
+#999<cr>                // reset all displays (micro reset)
+
+examples
+===============================================================================
+to display '012' starting at digit 0, and set brightness to 63 for all digits
+A999<cr>    //set display address to 999 (all digits respond)
+B063<cr>    //set brightness to 63 (all digits), will remain 63 until changed
+A000<cr>    //set address to 0 (any further <cr> will reset address to 0)
+T012<cr>    //send text '012', and latch/display (<cr>)
+//address now is back to 0
+
+to display raw data starting at digit 0, all segments of digit 0 on
+A000<cr>        //set address to 0
+RFF<cr>         //hex 0xFF - all segments on (8 bits, 8 segments)
+//address now is back to 0
 
 
- each digit has an address
- left digit has lowest address, then middle, then right
- each 3digit display has 3 addresses
- valid (user set) addresses are from 0-507 in steps of 3
- default (unset) addresses are from 512-998 generated from factory muid
+
 */
 
 
@@ -127,6 +194,46 @@ void show_clr(void){
     digits[1].segdata = 0;
     digits[2].segdata = 0;
 }
+/*------------------------------------------------------------------------------
+ - flash display n times, at ms milliseconds between on/off
+ - (off ms, on ms) * n
+ - leave display on when returning
+------------------------------------------------------------------------------*/
+void display_flash(uint8_t n, uint16_t ms)
+{
+    uint16_t save0 = digits[0].segdata;
+    uint16_t save1 = digits[1].segdata;
+    uint16_t save2 = digits[2].segdata;
+    for( ; n; n-- ){
+        show_clr();
+        nco_waitms( ms );
+        digits[0].segdata = save0;
+        digits[1].segdata = save1;
+        digits[2].segdata = save2;
+        nco_waitms( ms );
+    }
+}
+
+/*------------------------------------------------------------------------------
+ - 3 char ascii to int '000'-'999' -> 0-999
+ - return -1 if any char not ascii number
+------------------------------------------------------------------------------*/
+int16_t ascii3int( char* str )
+{
+    //'000' - '127'
+    int16_t ret = 0;
+    //100= 0b01100100
+    // 10= 0b00001010
+    //  1= 0b00000001
+    for( uint8_t d = 100; ; str++ ){
+        if( *str < '0' || *str > '9' ) return -1;
+        for( ; *str > '0'; ret += d, (*str)-- );
+        if( d == 1 ) break;
+        d = d == 10 ? 1 : 10; //d=100->10->1
+    }
+    return ret;
+}
+
 
 // MAIN
 //=============================================================================
@@ -176,10 +283,10 @@ void main(void) {
     uint16_t myaddress = nvm_read( nvm_ID0 );
     if( myaddress == 0x3FFF ){
         uint32_t r = nvm_mui();
-        //turn 32bit number into 512-998
-        //0-871 -> 512-998
-        r = r % 487; //0-486
-        r += 512; //512-998
+        //turn 32bit number into 513-996
+        r = r % 484; //0-483
+        r += 513; //513-996
+        r = r - (r % 3); //and make divisable by 3
         myaddress = r;
     }
 
@@ -188,7 +295,8 @@ void main(void) {
 
     //display my address briefly
     show0_999( myaddress );
-    nco_waits( 3 );
+    if( myaddress < 512 ) nco_waits( 3 );
+    else display_flash( 9, 333 );
 
     //display all brightness levels
     for(;;){
