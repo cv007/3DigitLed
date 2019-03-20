@@ -29,8 +29,7 @@ static bool m_started;         //keep track if nco is init
 // private
 // init nco timer - done automatically if nco needed
 //.............................................................................
-            static
-            void
+            static void
 m_init      ()
             {
             m_count = 0;                    //reset count

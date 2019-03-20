@@ -4,8 +4,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-
-//=============================================================================
 enum {
     nvm_ROWERASE =  1u<<15, //unused bits in wdata, to signify row erase
     nvm_ROWUPDATE = 1u<<14, //unused bits in wdata, to signify row write
@@ -24,11 +22,21 @@ enum {
 // nvm_pgm can be used when anything else is needed- you are responsible
 //   for erasing the row, preserving any data, etc.
 //=============================================================================
-uint16_t    nvm_read    (uint16_t);
-bool        nvm_writeW  (uint16_t, uint16_t); //write single word
-bool        nvm_writeNW (uint16_t, uint16_t*, uint8_t); //write n words
-bool        nvm_pgm     (uint16_t, uint16_t); //write latch, erase, row pgm
-uint32_t    nvm_mui     (void); //come up with a unique id from MUID bytes
+            //read single word
+            uint16_t
+nvm_read    (uint16_t);
+            //write single word
+            bool
+nvm_writeW  (uint16_t, uint16_t);
+            //write n words
+            bool
+nvm_writeNW (uint16_t, uint16_t*, uint8_t);
+            bool
+            //write latch, erase, row pgm
+nvm_pgm     (uint16_t, uint16_t);
+            //unique id from MUID bytes to uint32_t
+            uint32_t
+nvm_mui     (void);
 
 //=============================================================================
 /*

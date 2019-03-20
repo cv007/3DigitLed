@@ -6,7 +6,7 @@
 //values are powers of 4 so ccp pr matches timer1 when timer1 uses FOSC
 //as timer1 advances by 4 every clock cycle when source is FOSC
 //(powers of 2 probably work also it seems, but went with 4)
-const uint16_t brightness_table[64]={
+const uint16_t tables_bright[64]={
     0,112,228,344,460,572,696,836,992,1164,1356,1572,1804,2064,2344,2648,2976,
     3332,3716,4128,4568,5040,5540,6076,6644,7248,7884,8560,9268,10020,10808,
     11640,12508,13424,14380,15380,16428,17520,18660,19848,21088,22376,23716,
@@ -14,7 +14,7 @@ const uint16_t brightness_table[64]={
     46280,48448,50680,52980,55352,57788,60300,62880,65532
 };
 
-const uint8_t digit_table_hex[16] = {
+const uint8_t tables_segment_hex[16] = {
     //DP A B C D E F G
     // 0-9
     0b01111110, //0
@@ -36,7 +36,7 @@ const uint8_t digit_table_hex[16] = {
     0b01000111  //F
     //A b C c d E F g H h i I J L l n O o P q r S U u y
 };
-const uint8_t digit_table_ascii[128] = {
+const uint8_t tables_segment_ascii[128] = {
     //DP A B C D E F G
     // 32-127
     0b00000000, //32 space

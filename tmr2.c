@@ -10,10 +10,10 @@ tmr2_deinit (void)
             pmd_off( pmd_TMR2 );
             }
 
-// reset all timer2 regsiters via pmd
+// reset all timer2 regsiters via pmd (on when done)
 //=============================================================================
             void
-tmr2_reinit (void)
+tmr2_init   (void)
             {
             pmd_reset( pmd_TMR2 );
             }

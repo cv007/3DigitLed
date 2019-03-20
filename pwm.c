@@ -27,7 +27,7 @@ pwm_init    (pin_t* p, bool inv)
 
             pmd_reset( pmd_PWM3 + i );  //reset/enable pwm module
             if(tmr2_ison() == 0){       //if timer2 not on, setup
-                tmr2_reinit();          //resets, and powers on module
+                tmr2_init();            //resets, and powers on module
                 tmr2_mode( tmr2_FREERUN_0 );
                 tmr2_clksrc( tmr2_FOSC4 ); //only clock supported for pwm
                 tmr2_pre( tmr2_PRE16 );
