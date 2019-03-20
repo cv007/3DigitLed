@@ -15,10 +15,10 @@ disp_digitn_t;
 disp_init   (void);
             //display decimal number 000-999
             void
-disp_0_999  (uint16_t);
+disp_number (uint16_t);
             //display hex number 000-FFF
             void
-disp_0_FFF  (uint16_t);
+disp_hex    (uint16_t);
             //display ascii to digit
             //also returns data, can check if 0 (not displayable)
             uint8_t
@@ -36,6 +36,9 @@ disp_bright (disp_digitn_t, uint8_t);
             //buffered so multiple displays can update at the same time
             void
 disp_show   (void);
+            //set decimal point
+            void
+disp_dp     (disp_digitn_t);
 
 
 #endif // _DISP_H_

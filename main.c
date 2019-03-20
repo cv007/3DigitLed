@@ -172,7 +172,7 @@ void main(void) {
 
     //display my address if not a user set address
     if( myaddress > 512 ){
-        disp_0_999( myaddress );
+        disp_number( myaddress );
         disp_show();
         disp_blink( 9, 333 );
     }
@@ -183,7 +183,7 @@ void main(void) {
         disp_bright( disp_DIGIT0, i );
         disp_bright( disp_DIGIT1, i );
         disp_bright( disp_DIGIT2, i );
-        disp_0_999( i );
+        disp_number( i );
         disp_show();
         nco_waitms( 20 + 126 - i*2 );
     }
@@ -191,7 +191,7 @@ void main(void) {
         disp_bright( disp_DIGIT0, i );
         disp_bright( disp_DIGIT1, i );
         disp_bright( disp_DIGIT2, i );
-        disp_0_999( i );
+        disp_number( i );
         disp_show();
         nco_waitms( 20 + 126 - i*2 );
     }
@@ -215,7 +215,7 @@ void main(void) {
     for( ; ; ){
         if( nco_expired(dly) ){
             if( ++n > 0xFFF ) n = 0;
-            disp_0_FFF( n );
+            disp_number( n );
             disp_show();
             nco_restart( dly );
         }

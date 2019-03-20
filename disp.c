@@ -8,16 +8,18 @@
 #include "tmr1.h"
 #include "nco.h"
 
-//digit data
+            //digit struct
             typedef struct
             {
             uint16_t bright;        //brightness value from table
+            uint16_t bright_buf;    //buffered, so can update all at once
             uint8_t segdata;        //segment data, used in isr
             uint8_t segdata_buf;    //buffered, so can update all at once
             pin_t* drvpin;          //common driver pin for digit
             }
 digit_t;
 
+// digit data
 //....................................................................private..
             static digit_t
 m_digits[3];
@@ -76,9 +78,9 @@ disp_init   (void)
             ccp1_init( ccp1_OFF );
 
             //set initial brightness
-            m_digits[0].bright = tables_bright[32];
-            m_digits[1].bright = tables_bright[32];
-            m_digits[2].bright = tables_bright[32];
+            disp_bright( disp_DIGIT0, 32 );
+            disp_bright( disp_DIGIT1, 32 );
+            disp_bright( disp_DIGIT2, 32 );
 
             //set common drive pins
             m_digits[0].drvpin = ledC1;
@@ -90,13 +92,14 @@ disp_init   (void)
             tmr1_init( tmr1_FOSC, tmr1_PRE2 );
             tmr1_irqon( m_update ); //set isr function, enable irq
             tmr1_on( true );
-            //display refresh now on
+
+            //display is now working
             }
 
 //to 3 digit decimal, 0-999
 //=============================================================================
             void
-disp_0_999  (uint16_t n)
+disp_number (uint16_t n)
             {
             if( n > 999 ) return;
             m_digits[0].segdata_buf = tables_segment_hex[ n / 100 ];
@@ -107,7 +110,7 @@ disp_0_999  (uint16_t n)
 //to 3 digit hex, 0-FFF
 //=============================================================================
             void
-disp_0_FFF  (uint16_t n)
+disp_hex    (uint16_t n)
             {
             if( n > 0xFFF ) return;
             m_digits[0].segdata_buf = tables_segment_hex[ (n>>8) & 0xF ];
@@ -152,7 +155,7 @@ disp_blink  (uint8_t n, uint16_t ms)
             void
 disp_bright (disp_digitn_t n, uint8_t v)
             {
-            m_digits[n].bright = tables_bright[ v & 63 ];
+            m_digits[n].bright_buf = tables_bright[ v & 63 ];
             }
 
 // display ascii char to digit, if not a char that can be displayed
@@ -177,6 +180,17 @@ disp_show   (void)
             m_digits[0].segdata = m_digits[0].segdata_buf;
             m_digits[1].segdata = m_digits[1].segdata_buf;
             m_digits[2].segdata = m_digits[2].segdata_buf;
+            m_digits[0].bright = m_digits[0].bright_buf;
+            m_digits[1].bright = m_digits[1].bright_buf;
+            m_digits[2].bright = m_digits[2].bright_buf;
             ei();
             }
 
+
+//set decimal point
+//=============================================================================
+            void
+disp_dp     (disp_digitn_t n)
+            {
+            m_digits[n].segdata |= 0x80;
+            }
