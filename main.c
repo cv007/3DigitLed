@@ -122,9 +122,41 @@ RFF<cr>         //hex 0xFF - all segments on (8 bits, 8 segments)
 #include "pwr.h"    //sleep/idle, reset flags
 #include "nvm.h"    //read/write flash
 #include "disp.h"
+#include "uart1.h"
 
+typedef struct {
+    uint8_t buf[32];
+    uint8_t head;
+    uint8_t tail;
+    uint8_t ferr_count;
+    uint8_t oerr_count;
+} rx_t;
+volatile rx_t rxinfo;
 
-
+void uart1rx(void)
+{
+    RC1STAbits_t err = RC1STAbits;//get errors first
+    uint8_t c = RC1REG;          //then rx byte
+    if( err.FERR ){             //framing error
+        rxinfo.ferr_count++;
+        return;
+    }
+    if( err.OERR ){             //rx overrun error
+        RC1STAbits.CREN = 0;    //reset usart rx
+        RC1STAbits.CREN = 1;
+        rxinfo.oerr_count++;
+        return;
+    }
+    rxinfo.head++;
+    if( rxinfo.head >= 32 ) rxinfo.head = 0;
+    if( rxinfo.head == rxinfo.tail ){
+        rxinfo.oerr_count++; //even though not hardware error, add
+        return;
+    }
+    rxinfo.buf[rxinfo.head++] = c;       //save rx byte
+    if( rxinfo.head >= 32 )     //keep inside buffer
+        rxinfo.head = 0;
+}
 
 
 
@@ -155,6 +187,21 @@ void main(void) {
     //init display
     disp_init();
     //display is now working
+
+    //setup uart1
+    uart1_init( 19200 );
+    uart1_trxon( uart1_RX, pinRX );
+    uart1_irqon( uart1_RX, uart1rx );
+
+    //testing- check what brg set to
+    disp_ascii( disp_DIGIT0, 'B' );
+    disp_ascii( disp_DIGIT1, 'a' );
+    disp_ascii( disp_DIGIT2, 'u' );
+    disp_show();
+    nco_waitms( 3000 );
+    disp_number( SP1BRG );
+    disp_show();
+    nco_waitms( 3000 );
 
     //get display address (0, 3, 6, 9, 12, ..., 507)
     uint16_t myaddress = nvm_read( nvm_ID0 );

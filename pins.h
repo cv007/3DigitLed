@@ -42,8 +42,7 @@ attrib_t;
             }
 pin_t;
 
-//PPSOUT sources
-//=============================================================================
+            //PPSOUT sources
             typedef enum
             {
             pps_LATOUT,

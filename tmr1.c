@@ -63,7 +63,7 @@ static void (*isrfp)(void) = 0;
 tmr1_irqon  (void(*fp)(void))
             {
             PIR4bits.TMR1IF = 0;
-            PIE4bits.TMR1IE = 1;            //enable/disable irq
+            PIE4bits.TMR1IE = 1;            //enable irq
             isrfp = fp;
             INTCONbits.PEIE = 1;            //also need peie
             INTCONbits.GIE = 1;             //and global irq
