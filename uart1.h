@@ -4,12 +4,6 @@
 #include <stdint.h>
 #include "pins.h"
 
-            typedef enum
-            {
-            uart1_TX, uart1_RX
-            }
-uart1_txrx_t;
-
             //power off
             void
 uart1_deinit (void);
@@ -18,21 +12,26 @@ uart1_deinit (void);
             void
 uart1_init  (uint32_t);
 
-            //enable tx or rx, set pps pin
+            //enable/disable tx, set pps pin
             void
-uart1_trxon(uart1_txrx_t, pin_t*);
+uart1_txon (bool, pin_t*);
+
+            //enable/disable rx, set pps pin
+            void
+uart1_rxon (bool, pin_t*);
 
             //set baud
             void
 uart1_baud (uint32_t);
 
-            //turn on irq (tx ot rx), set isr function
+            //enable/disable tx irq, set isr function
             void
-uart1_irqon (uart1_txrx_t, void(*)(void));
+uart1_txirqon(bool, void(*)(void));
 
-            //turn off irq (tx ot rx)
+            //enable/disable rx irq, set isr function
             void
-uart1_irqoff(uart1_txrx_t);
+uart1_rxirqon(bool, void(*)(void));
+
 
 
 #endif // _UART1_H_

@@ -23,6 +23,9 @@ disp_hex    (uint16_t);
             //also returns data, can check if 0 (not displayable)
             uint8_t
 disp_ascii  (disp_digitn_t, char);
+            //display raw data
+            void
+disp_raw    (disp_digitn_t, uint8_t);
             //clear display
             void
 disp_clear  (void);

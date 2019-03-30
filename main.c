@@ -48,8 +48,8 @@ valid addresses for displays are from 0-507 step 3 (0,3,6,...507)
 default (unset) display addresses are from 512-998 generated from factory muid
 address 999 is reserved- all digits will respond to address 999
 
-all valid incoming bytes are in the range 10,13,32-127 decimal
-(0x0A,0x0D,0x20-0x7F)
+all valid incoming bytes are in the range 9,10,13,32-127 decimal
+(0x09,0x0A,0x0D,0x20-0x7F)
 all incoming bytes > 127 (0x80-0xFF) are ignored
 
 <cr> = 13 decimal (0x0D) = latch command OR
@@ -104,8 +104,98 @@ A000<cr>        //set address to 0
 RFF<cr>         //hex 0xFF - all segments on (8 bits, 8 segments)
 //address now is back to 0
 
+plan B
+\t char is start of command mode (0x09, <tab>)
 
+<tab>000<cr> - set address 000-999 - applies to all
+<tab>TXT<cr> - text mode (ascii)  - applies to all
+<tab>RAW<cr> - raw mode (segment data)  - applies to all
+<tab>B63<cr> - brightness 00-63  - applies to address
+<tab>RST<cr> - reset all displays (hardware reset)  - applies to all
+<tab>ID?<cr> - show display id (address)  - applies to all
+<tab>VDD<cr> - show voltage  - applies to address
 
+examples from above-
+<tab>999<cr>
+<tab>B63<cr>
+<tab>000<cr>
+012<cr>
+<tab>RAW<cr>
+FF<cr>
+
+typedef enum {
+    CMD0, CMD1, CMD2, CMD3,
+    DATA, DATA2,
+    BAD
+} state_t;
+state_t state;
+
+enum { LF = 10, CR = 13, TAB = 9 };
+typedef enum { TEXT, RAW } mode_t;
+
+uint8_t cmd[3];
+mode_t mode = TEXT;
+uint8_t rawdat;
+
+for(;;){
+    while( rxinfo.head == rx.info.tail );
+    char c = rxinfo.buf[ ++rxinfo.tail ];
+    if( rxinfo.tail >= sizeof( rxinfo.buf ) ) rxinfo.tail = 0;
+
+    if( c == CR || c == LF ){
+        if(state == CMD4){
+            process command;
+        }
+        else if( state == DATA ) update display
+        address.current = address.origin
+        state = DATA;
+        continue;
+    }
+    else if( c == TAB && state != BAD ){
+        state = CMD0;
+        continue;
+    };
+    else if( c < ' ' || c > 127 ){
+        continue;
+    }
+
+    switch( state ){
+
+    case CMD0: cmd[0] = c; state = CMD1; break;
+    case CMD1: cmd[1] = c; state = CMD2; break;
+    case CMD2: cmd[2] = c; state = CMD3; break;
+    case CMD3:
+        //should not get here
+        state = BAD;
+        break;
+    case DATA:
+        if( address.current >= address.my && address.current <= address.my+2 ||
+            address.current == 999 ){
+            if( mode == TEXT ){
+                disp_ascii( disp_DIGIT0, c );
+            } else {
+                if( c >= '0' && c <= '9' ) c -= '0';
+                else if( c >= 'A' && c <= 'F' ) c -= 'A' + 10;
+                if( c > 15 ) state = BAD;
+                else {
+                    raw = c<<8; state = DATA2;
+                }
+            }
+        }
+        address.current++;
+        break;
+    case DATA2:
+        disp_raw( which digit, raw );
+        state = DATA;
+        break;
+    case TAB:
+        state = CMD1;
+        break;
+    case BAD: //need CR LF to exit this state
+        break;
+    }
+
+}
 */
 
 
@@ -120,44 +210,8 @@ RFF<cr>         //hex 0xFF - all segments on (8 bits, 8 segments)
 #include "nco.h"    //delays
 #include "pmd.h"    //module power
 #include "pwr.h"    //sleep/idle, reset flags
-#include "nvm.h"    //read/write flash
 #include "disp.h"
-#include "uart1.h"
-
-typedef struct {
-    uint8_t buf[32];
-    uint8_t head;
-    uint8_t tail;
-    uint8_t ferr_count;
-    uint8_t oerr_count;
-} rx_t;
-volatile rx_t rxinfo;
-
-void uart1rx(void)
-{
-    RC1STAbits_t err = RC1STAbits;//get errors first
-    uint8_t c = RC1REG;          //then rx byte
-    if( err.FERR ){             //framing error
-        rxinfo.ferr_count++;
-        return;
-    }
-    if( err.OERR ){             //rx overrun error
-        RC1STAbits.CREN = 0;    //reset usart rx
-        RC1STAbits.CREN = 1;
-        rxinfo.oerr_count++;
-        return;
-    }
-    rxinfo.head++;
-    if( rxinfo.head >= 32 ) rxinfo.head = 0;
-    if( rxinfo.head == rxinfo.tail ){
-        rxinfo.oerr_count++; //even though not hardware error, add
-        return;
-    }
-    rxinfo.buf[rxinfo.head++] = c;       //save rx byte
-    if( rxinfo.head >= 32 )     //keep inside buffer
-        rxinfo.head = 0;
-}
-
+#include "commander.h"
 
 
 // MAIN
@@ -188,41 +242,11 @@ void main(void) {
     disp_init();
     //display is now working
 
-    //setup uart1
-    uart1_init( 19200 );
-    uart1_trxon( uart1_RX, pinRX );
-    uart1_irqon( uart1_RX, uart1rx );
-
-    //testing- check what brg set to
-    disp_ascii( disp_DIGIT0, 'B' );
-    disp_ascii( disp_DIGIT1, 'a' );
-    disp_ascii( disp_DIGIT2, 'u' );
-    disp_show();
-    nco_waitms( 3000 );
-    disp_number( SP1BRG );
-    disp_show();
-    nco_waitms( 3000 );
-
-    //get display address (0, 3, 6, 9, 12, ..., 507)
-    uint16_t myaddress = nvm_read( nvm_ID0 );
-    if( myaddress == 0x3FFF ){
-        uint32_t r = nvm_mui();
-        //turn 32bit number into 513-996
-        r = r % 484; //0-483
-        r += 513; //513-996
-        r = r - (r % 3); //and make divisable by 3
-        myaddress = r;
-    }
+    //init commander
+    commander_init();
 
     //testing
 
-
-    //display my address if not a user set address
-    if( myaddress > 512 ){
-        disp_number( myaddress );
-        disp_show();
-        disp_blink( 9, 333 );
-    }
 
     //display all brightness levels
     for(;;){
@@ -242,15 +266,17 @@ void main(void) {
 
 
     //show all ascii chars
+    for(;;){
     disp_clear();
     disp_show();
-    for( uint8_t i = 32, j = 0; i < 128; i++ ){
-        if( ! disp_ascii((disp_digitn_t)j, i) ) continue;
+    for( uint8_t i = 32; i < 128; i++ ){
+        disp_ascii(disp_DIGIT0, i-2);
+        disp_ascii(disp_DIGIT1, i-1);
+        disp_ascii(disp_DIGIT2, i);
         disp_show();
-        nco_waitms( 100 );
-        if( j>2 ) j=0;
+        nco_waitms( 500 );
     }
-
+    }
     //count up 0-FFF
     nco_t_t dly = nco_setus( 100000 );
 

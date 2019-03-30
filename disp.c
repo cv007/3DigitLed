@@ -170,6 +170,14 @@ disp_ascii  (disp_digitn_t n, char c)
             return ret;
             }
 
+// display raw data to digit
+//=============================================================================
+            void
+disp_raw    (disp_digitn_t n, uint8_t v)
+            {
+            m_digits[n].segdata_buf = v;
+            }
+
 //transfer buffered data to segment data
 // isr uses segdata, so need to call this function to update buffer to segdata
 //=============================================================================
