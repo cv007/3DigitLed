@@ -4,6 +4,7 @@
 #include "uart1.h"
 #include "nvm.h"
 #include "disp.h"
+#include "string.h"
 
             typedef enum
             {
@@ -20,14 +21,6 @@ state_t state;
             }
 mode_t;
 mode_t mode = TEXT;
-
-            enum
-            {
-            LF = 10, CR = 13, TAB = 9
-            };
-
-uint8_t cmd[3];
-uint8_t rawdat;
 
             typedef struct
             {
@@ -48,6 +41,14 @@ address_t address;
             }
 rx_t;
 volatile rx_t rxinfo;
+
+            enum
+            {
+            TAB = 9, LF = 10, CR = 13
+            };
+
+uint8_t cmd[3];
+
 
 //.............................................................................
             void
@@ -106,6 +107,13 @@ addr_inc    (void)
             }
 
 //.............................................................................
+            bool
+addr_match  (uint16_t a)
+            {
+            return address.current == a || address.current == 999;
+            }
+
+//.............................................................................
             void
 proc_cmd    (void)
             {
@@ -124,19 +132,25 @@ proc_cmd    (void)
                 if( v >= 0 ) address.origin = v;
                 return;
             }
-            if( cmd[0] == 'T' && cmd[1] == 'X' && cmd[2] == 'T' ){
-                mode = TEXT; state = TXT; return;
+            if( 0 == strncmp ( (const char*)cmd, "TXT", 3 ) ){
+                mode = TEXT;
+                state = TXT;
+                return;
             }
-            if( cmd[0] == 'R' && cmd[1] == 'A' && cmd[2] == 'W' ){
-                mode = RAW; state = RAW1; return;
+            if( 0 == strncmp ( (const char*)cmd, "RAW", 3 ) ){
+                mode = RAW;
+                state = RAW1;
+                return;
             }
-            if( cmd[0] == 'R' && cmd[1] == 'S' && cmd[2] == 'T' ){
+            if( 0 == strncmp ( (const char*)cmd, "RST", 3 ) ){
                 RESET();
             }
-            if( cmd[0] == 'I' && cmd[1] == 'D' && cmd[2] == '?' ){
-                disp_number( address.my ); disp_show(); return;
+            if( 0 == strncmp ( (const char*)cmd, "ID?", 3 ) ){
+                disp_number( address.my );
+                disp_show();
+                return;
             }
-            if( cmd[0] == 'V' && cmd[1] == 'D' && cmd[2] == 'D' ){
+            if( 0 == strncmp ( (const char*)cmd, "VDD", 3 ) ){
                 //TODO
             }
             //brightness applies only to current address
@@ -144,15 +158,9 @@ proc_cmd    (void)
                 cmd[0] = '0'; //B63 -> 063
                 int16_t v = atoi3();
                 if( v < 0 || v > 63 ) return;
-                if( address.current == address.my || address.current == 999 ){
-                    disp_bright( disp_DIGIT0, v );
-                }
-                if( address.current == address.my || address.current == 999 ){
-                    disp_bright( disp_DIGIT1, v );
-                }
-                if( address.current == address.my || address.current == 999 ){
-                    disp_bright( disp_DIGIT2, v );
-                }
+                if( addr_match(address.my) ) disp_bright( disp_DIGIT0, v );
+                if( addr_match(address.my+1) ) disp_bright( disp_DIGIT1, v );
+                if( addr_match(address.my+2) ) disp_bright( disp_DIGIT2, v );
                 disp_show();
             }
             }
@@ -161,17 +169,11 @@ proc_cmd    (void)
             void
 proc_txt    (char c)
             {
-                //TODO
-                //take care of DP (show on previous digit)
-            if( address.current == address.my || address.current == 999 ){
-                disp_ascii( disp_DIGIT0, c );
-            }
-            if( address.current == (address.my+1) || address.current == 999 ){
-                disp_ascii( disp_DIGIT1, c );
-            }
-            if( address.current == (address.my+2) || address.current == 999 ){
-                disp_ascii( disp_DIGIT2, c );
-            }
+            //TODO
+            //take care of DP (show on previous digit)
+            if( addr_match(address.my) ) disp_ascii( disp_DIGIT0, c );
+            if( addr_match(address.my+1) ) disp_ascii( disp_DIGIT1, c );
+            if( addr_match(address.my+2) ) disp_ascii( disp_DIGIT2, c );
             addr_inc();
             }
 
@@ -191,15 +193,9 @@ proc_raw    (char c)
                 return;
             }
             dat |= c;
-            if( address.current == address.my || address.current == 999 ){
-                disp_raw( disp_DIGIT0, dat );
-            }
-            if( address.current == (address.my+1) || address.current == 999 ){
-                disp_raw( disp_DIGIT1, dat );
-            }
-            if( address.current == (address.my+2) || address.current == 999 ){
-                disp_raw( disp_DIGIT2, dat );
-            }
+            if( addr_match( address.my ) ) disp_raw( disp_DIGIT0, dat );
+            if( addr_match( address.my+1 ) ) disp_raw( disp_DIGIT1, dat );
+            if( addr_match( address.my+2 ) ) disp_raw( disp_DIGIT2, dat );
             state = RAW1;
             addr_inc();
             }
