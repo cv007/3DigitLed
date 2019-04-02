@@ -249,19 +249,17 @@ void main(void) {
 
 
     //display all brightness levels
-    for(;;){
-        int8_t j = 1;
-        for(uint8_t i = 0; ; ){
-            disp_bright( disp_DIGIT0, i );
-            disp_bright( disp_DIGIT1, i );
-            disp_bright( disp_DIGIT2, i );
-            disp_number( i );
-            disp_show();
-            nco_waitms( 20 + 126 - i*2 );
-            i += j;
-            if( i == 64 ){ j = -1; i = 63; }
-            else if( i == 0 ){ j = 1; }
-        }
+    int8_t j = 1;
+    for(uint8_t i = 0; ; ){
+        disp_bright( disp_DIGIT0, i );
+        disp_bright( disp_DIGIT1, i );
+        disp_bright( disp_DIGIT2, i );
+        disp_number( i );
+        disp_show();
+        nco_waitms( 20 + 126 - i*2 );
+        i += j;
+        if( i == 64 ){ j = -1; i = 63; }
+        else if( i == 0 ){ j = 1; }
     }
 
 

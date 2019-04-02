@@ -200,5 +200,5 @@ disp_show   (void)
             void
 disp_dp     (disp_digitn_t n)
             {
-            m_digits[n].segdata |= 0x80;
+            m_digits[n].segdata_buf |= 0x80;
             }

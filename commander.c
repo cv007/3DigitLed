@@ -5,6 +5,8 @@
 #include "nvm.h"
 #include "disp.h"
 #include "string.h"
+#include "fvr.h"
+#include "adc.h"
 
             typedef enum
             {
@@ -152,6 +154,19 @@ proc_cmd    (void)
             }
             if( 0 == strncmp ( (const char*)cmd, "VDD", 3 ) ){
                 //TODO
+                disp_clear();
+                disp_show(); //do adc with led's off
+                fvr_adc( fvr_ADC2X );
+                uint16_t adcv = adc_read( adc_FVR1 ); //am assuming adc fvr is fvr1
+                fvr_adc( fvr_ADCOFF );
+                //Vdd = fvr / adcv * 1023
+                //Vdd*100 =  2.048*100*1000 / adcv * 1023 / 1000
+                //Vdd*100 =  2.048*100*1023 / adcv
+                //Vdd  = 209510/512 = 409 (4.09v)
+                adcv = 209510UL / adcv;
+                disp_number( adcv );
+                disp_dp( disp_DIGIT0 );
+                disp_show();
             }
             //brightness applies only to current address
             if( cmd[0] == 'B' ){

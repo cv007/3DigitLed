@@ -4,8 +4,7 @@
 #include "pins.h"
 #include <stdint.h>
 
-// channels other than pins
-//=============================================================================
+            // channels other than pins
             typedef enum
             {
             adc_AVSS = 0x3B,
@@ -16,6 +15,17 @@
             }
 adc_ch_t;
 
+            typedef enum
+            {
+            adc_PREF_VDD,
+            adc_PREF_REFPIN = 2,
+            adc_PREF_FVR,
+            }
+adc_pref_t;
+
+            //set positive reference (if not using default of Vdd)
+            void
+adc_pref    (adc_pref_t);
             //read channel (that is not a pin)
             uint16_t
 adc_read    (adc_ch_t);
