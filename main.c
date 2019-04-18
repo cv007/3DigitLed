@@ -9,16 +9,7 @@
 
  testing with PIC16 Curiosity Board
 
-           16F15325
-         ----------
-     Vdd |1     14| Vss
- E   RA5 |2     13| RA0 c1
- D   RA4 |3     12| RA1 A
-MCLR/RA3 |4     11| RA2 F
- DP  RC5 |5     10| RC0 B
- C   RC4 |6      9| RC1 c2
- G   RC3 |7      8| RC2 c3
-         ----------
+ change mypins.h when switching to pcb version with ML package
 
  _  _   ___  _____  ___  ___
 | \| | / _ \|_   _|| __|/ __|
@@ -52,150 +43,82 @@ all valid incoming bytes are in the range 9,10,13,32-127 decimal
 (0x09,0x0A,0x0D,0x20-0x7F)
 all incoming bytes > 127 (0x80-0xFF) are ignored
 
-<cr> = 13 decimal (0x0D) = latch command OR
-<lf> = 10 decimal (0x0A) = latch command
-latch command executes previous valid command, or displays previous sent
-display data
-a latch command sent when no valid previous command will do nothing, and
-will reset state to start of command state
+<cr> = 13 decimal (0x0D) -> process previous command, or display previous data
+<lf> = 10 decimal (0x0A) -> same as <cr>
+<tab> = 9 decimal (0x09) -> start of command
 
-first char after <cr> must be a command byte
-all valid commands except T,R are 4 bytes followed by <cr>
-T,R commands are both single byte, followed by data, then <cr>
 
-commands
-===============================================================================
-A000<cr>..A999<cr>  A = address set         000 - 999 = address in ascii decimal
-    set current address for all displays
-    address advances by 1 for each Text char sent EXCEPT for '.', or every
-    second Raw byte sent, resets to set address at <cr>, if address is 999,
-    address will not increment
 
-    for Text '.' character, the dp will be set for the previous digit and the
-    address will not increment
+================
+=== COMMANDS ===
+================
 
-Tdisplaystring...<cr>   T = text                any number of ascii characters
-Rxx...<cr>              R = raw data            2 ascii hex bytes per digit
-B000 - B063<cr>         B = brightness          000 - 063 = brightness level
-#xxx<cr>                # = other               xxx = other commands
+<tab> char is used to start every command (0x09, <tab>, \t)
 
-A000<cr>                // address set
-Ttest<cr>               // send text <cr>=latch
-RFF0042<cr>             // raw (2 ascii hex bytes per digit, '0'-'9','A'-'F')
-B000<cr>                // brightness 000-063
 
-#000<cr>                // display power source voltage
-#001<cr>                // display id# (digit 0 of display)
-#002<cr>                // show overrun error count
-#003<cr>                // show framing error count
-#999<cr>                // reset all displays (micro reset)
+ADDRESS
+
+set origin address for all displays (becomes current address), 000-999
+address advances by 1 for each Text char sent EXCEPT for '.',
+or every second Raw byte sent,
+address reset to origin at <cr>,
+if address is 999 address will not increment (all digits respond to data)
+
+for Text '.' character, the dp will be set for the previous digit and the
+address will not increment
+
+    <tab>000<cr>
+
+
+TEXT - set mode to TEXT (default mode) - applies to all
+
+    <tab>TXT<cr>
+
+
+RAW - set mode to RAW - applies to all
+      (2 ascii hex bytes for each digit, segment data)
+      address increments every other byte
+
+    <tab>RAW<cr>
+
+
+BRIGHTNESS - set digit brightness  - 00-63 - applies to addressed digit
+
+    <tab>B63<cr>
+
+
+RESET - display hardware reset - applies to all
+
+    <tab>RST<cr>
+
+
+ID - show display ID (address of first digit of display) - applies to all
+
+    <tab>ID?<cr>
+
+
+VDD - show display voltage - applies to addressed display
+
+    <tab>VDD<cr>
+
 
 examples
 ===============================================================================
 to display '012' starting at digit 0, and set brightness to 63 for all digits
-A999<cr>    //set display address to 999 (all digits respond)
-B063<cr>    //set brightness to 63 (all digits), will remain 63 until changed
-A000<cr>    //set address to 0 (any further <cr> will reset address to 0)
-T012<cr>    //send text '012', and latch/display (<cr>)
+<tab>999<cr>    //set display address to 999 (all digits respond)
+<tab>B63<cr>    //set brightness to 63 (all digits)
+<tab>000<cr>    //set address to 0 (any further <cr> will reset address to 0)
+012<cr>         //send text '012', then latch/display (<cr>)
 //address now is back to 0
 
 to display raw data starting at digit 0, all segments of digit 0 on
-A000<cr>        //set address to 0
-RFF<cr>         //hex 0xFF - all segments on (8 bits, 8 segments)
-//address now is back to 0
+<tab>RAW<cr>    //RAW mode
+FF<cr>          //hex 0xFF - all segments on (8 bits, 8 segments)
+//address now is back to 0 (and still in RAW mode)
+<tab>TXT<cr>    //back to TEXT mode
 
-plan B
-\t char is start of command mode (0x09, <tab>)
 
-<tab>000<cr> - set address 000-999 - applies to all
-<tab>TXT<cr> - text mode (ascii)  - applies to all
-<tab>RAW<cr> - raw mode (segment data)  - applies to all
-<tab>B63<cr> - brightness 00-63  - applies to address
-<tab>RST<cr> - reset all displays (hardware reset)  - applies to all
-<tab>ID?<cr> - show display id (address)  - applies to all
-<tab>VDD<cr> - show voltage  - applies to address
 
-examples from above-
-<tab>999<cr>
-<tab>B63<cr>
-<tab>000<cr>
-012<cr>
-<tab>RAW<cr>
-FF<cr>
-
-typedef enum {
-    CMD0, CMD1, CMD2, CMD3,
-    DATA, DATA2,
-    BAD
-} state_t;
-state_t state;
-
-enum { LF = 10, CR = 13, TAB = 9 };
-typedef enum { TEXT, RAW } mode_t;
-
-uint8_t cmd[3];
-mode_t mode = TEXT;
-uint8_t rawdat;
-
-for(;;){
-    while( rxinfo.head == rx.info.tail );
-    char c = rxinfo.buf[ ++rxinfo.tail ];
-    if( rxinfo.tail >= sizeof( rxinfo.buf ) ) rxinfo.tail = 0;
-
-    if( c == CR || c == LF ){
-        if(state == CMD4){
-            process command;
-        }
-        else if( state == DATA ) update display
-        address.current = address.origin
-        state = DATA;
-        continue;
-    }
-    else if( c == TAB && state != BAD ){
-        state = CMD0;
-        continue;
-    };
-    else if( c < ' ' || c > 127 ){
-        continue;
-    }
-
-    switch( state ){
-
-    case CMD0: cmd[0] = c; state = CMD1; break;
-    case CMD1: cmd[1] = c; state = CMD2; break;
-    case CMD2: cmd[2] = c; state = CMD3; break;
-    case CMD3:
-        //should not get here
-        state = BAD;
-        break;
-    case DATA:
-        if( address.current >= address.my && address.current <= address.my+2 ||
-            address.current == 999 ){
-            if( mode == TEXT ){
-                disp_ascii( disp_DIGIT0, c );
-            } else {
-                if( c >= '0' && c <= '9' ) c -= '0';
-                else if( c >= 'A' && c <= 'F' ) c -= 'A' + 10;
-                if( c > 15 ) state = BAD;
-                else {
-                    raw = c<<8; state = DATA2;
-                }
-            }
-        }
-        address.current++;
-        break;
-    case DATA2:
-        disp_raw( which digit, raw );
-        state = DATA;
-        break;
-    case TAB:
-        state = CMD1;
-        break;
-    case BAD: //need CR LF to exit this state
-        break;
-    }
-
-}
 */
 
 
@@ -249,40 +172,43 @@ void main(void) {
 
 
     //display all brightness levels
-    int8_t j = 1;
-    for(uint8_t i = 0; ; ){
-        disp_bright( disp_DIGIT0, i );
-        disp_bright( disp_DIGIT1, i );
-        disp_bright( disp_DIGIT2, i );
-        disp_number( i );
-        disp_show();
-        nco_waitms( 20 + 126 - i*2 );
-        i += j;
-        if( i == 64 ){ j = -1; i = 63; }
-        else if( i == 0 ){ j = 1; }
-    }
+//     int8_t j = 1;
+//     for(uint8_t i = 0; ; ){
+//         disp_bright( disp_DIGIT0, i );
+//         disp_bright( disp_DIGIT1, i );
+//         disp_bright( disp_DIGIT2, i );
+//         disp_number( i );
+//         disp_show();
+//         nco_waitms( 80 + 126 - i*2 );
+//         i += j;
+//         if( i == 64 ){ j = -1; i = 63; }
+//         else if( i == 0 ){ j = 1; }
+//     }
 
+    disp_bright( disp_DIGIT0, 32 );
+    disp_bright( disp_DIGIT1, 32 );
+    disp_bright( disp_DIGIT2, 32 );
 
     //show all ascii chars
-    for(;;){
-    disp_clear();
-    disp_show();
-    for( uint8_t i = 32; i < 128; i++ ){
-        disp_ascii(disp_DIGIT0, i-2);
-        disp_ascii(disp_DIGIT1, i-1);
-        disp_ascii(disp_DIGIT2, i);
-        disp_show();
-        nco_waitms( 500 );
-    }
-    }
+//     for(;;){
+//     disp_clear();
+//     disp_show();
+//     for( uint8_t i = 32; i < 128; i++ ){
+//         disp_ascii(disp_DIGIT0, i-2);
+//         disp_ascii(disp_DIGIT1, i-1);
+//         disp_ascii(disp_DIGIT2, i);
+//         disp_show();
+//         nco_waitms( 100 );
+//     }
+//     }
     //count up 0-FFF
-    nco_t_t dly = nco_setus( 100000 );
+    nco_t_t dly = nco_setus( 50000 );
 
     uint16_t n = 0;
     for( ; ; ){
         if( nco_expired(dly) ){
             if( ++n > 0xFFF ) n = 0;
-            disp_number( n );
+            disp_hex( n );
             disp_show();
             nco_restart( dly );
         }

@@ -14,41 +14,76 @@
 #define PIN(pt,pn) pin_##pt, pin_##pn, 1<<pin_##pn
 
 pin_t _allpins[] = {
-//              |    a     o  s     o |- initial
-//    port/pin  | i  n  p  d  l  s  n |  values
-//    bitmask   | n  a  u  n  w  t  v |
 //.............................................................SETUP PINS......
 // common anode driven by npn, so common anode pins are high=on
 // segments are cathode, so segment pins are low=on
 // slew rate turned on for all outputs (slw), 25ns vs normal 5ns
 // mclr pin used as rx pin, need to set fuses- MCLRE=OFF, LVF=OFF
 // (high voltgae programming only)
-    { PIN(A,0), { 0, 0, 0, 0, 1, 0, 1 } }, //[0] ledC1
-    { PIN(A,1), { 0, 0, 0, 0, 1, 0, 0 } }, //[1] ledA
-    { PIN(A,2), { 0, 0, 0, 0, 1, 0, 0 } }, //[2] ledF
-    { PIN(C,0), { 0, 0, 0, 0, 1, 0, 0 } }, //[3] ledB
-    { PIN(C,1), { 0, 0, 0, 0, 1, 0, 1 } }, //[4] ledC2
-    { PIN(C,2), { 0, 0, 0, 0, 1, 0, 1 } }, //[5] ledC3
 
-    { PIN(A,5), { 0, 0, 0, 0, 1, 0, 0 } }, //[6] ledE
-    { PIN(A,4), { 0, 0, 0, 0, 1, 0, 0 } }, //[7] ledD
-    { PIN(C,5), { 0, 0, 0, 0, 1, 0, 0 } }, //[8] ledDP
-    { PIN(C,4), { 0, 0, 0, 0, 1, 0, 0 } }, //[9] ledC
-    { PIN(C,3), { 0, 0, 0, 0, 1, 0, 0 } }, //[10] ledG
+//              |    a     o  s     o |- initial
+//    port/pin  | i  n  p  d  l  s  n |  values
+//    bitmask   | n  a  u  n  w  t  v |
 
+    { PIN(A,2), { 0, 0, 0, 0, 1, 0, 1 } }, //[0] ledC1
+    { PIN(A,0), { 0, 0, 0, 0, 1, 0, 0 } }, //[1] ledA
+    { PIN(A,1), { 0, 0, 0, 0, 1, 0, 0 } }, //[2] ledF
+    { PIN(A,5), { 0, 0, 0, 0, 1, 0, 0 } }, //[3] ledB
+    { PIN(A,4), { 0, 0, 0, 0, 1, 0, 1 } }, //[4] ledC2
+    { PIN(C,5), { 0, 0, 0, 0, 1, 0, 1 } }, //[5] ledC3
+    { PIN(C,0), { 0, 0, 0, 0, 1, 0, 0 } }, //[6] ledE
+    { PIN(C,1), { 0, 0, 0, 0, 1, 0, 0 } }, //[7] ledD
+    { PIN(C,2), { 0, 0, 0, 0, 1, 0, 0 } }, //[8] ledDP
+    { PIN(C,3), { 0, 0, 0, 0, 1, 0, 0 } }, //[9] ledC
+    { PIN(C,4), { 0, 0, 0, 0, 1, 0, 0 } }, //[10] ledG
     { PIN(A,3), { 1, 0, 1, 0, 0, 0, 0 } }  //[11] pinRX //MCLR as input
-/*
-            16F15325
-            ----------
-        Vdd |1     14| Vss
-    E   RA5 |2     13| RA0 c1
-    D   RA4 |3     12| RA1 A
- rx MCLR/RA3 |4     11| RA2 F
-    DP  RC5 |5     10| RC0 B
-    C   RC4 |6      9| RC1 c2
-    G   RC3 |7      8| RC2 c3
-            ----------
-*/
+
+    /*
+            16F15325 - ML package - actual pcb
+
+            pin1    RA5         B
+            pin2    RA4         C2
+            pin3    MCLR/RA3    RX
+            pin4    RC5         C3
+            pin5    RC4         G
+            pin6    RC3         C
+            pin7    RC2         DP
+            pin8    RC1         D
+            pin9    RC0         E
+            pin10   RA2         C1
+            pin11   RA1/ICSPCLK F
+            pin12   RA0/ICSPDAT A
+            pin13   Vss
+            pin14   nc
+            pin15   nc
+            pin16   Vdd
+
+
+            3digit led
+
+            1 - E      12 - C1
+            2 - D      11 - A
+            3 - DP     10 - F
+            4 - C       9 - C2
+            5 - G       8 - C3
+            6 - nc      7 - B
+
+
+                DIP package
+
+                16F15325
+                ----------
+            Vdd |1     14| Vss
+        E   RA5 |2     13| RA0 c1
+        D   RA4 |3     12| RA1 A
+    rx MCLR/RA3 |4     11| RA2 F
+        DP  RC5 |5     10| RC0 B
+        C   RC4 |6      9| RC1 c2
+        G   RC3 |7      8| RC2 c3
+                ----------
+
+     */
+
 
 //.............................................................SETUP DONE......
 };
@@ -100,27 +135,3 @@ pin_t* pinRX = &_allpins[11];
 #endif
 
 
-/*
-           16F15325
-         ----------
-     Vdd |1     14| Vss
-     RA5 |2     13| RA0
-     RA4 |3     12| RA1
-MCLR/RA3 |4     11| RA2
-     RC5 |5     10| RC0
-     RC4 |6      9| RC1
-     RC3 |7      8| RC2
-         ----------
-
-           16F15325
-         ----------
-     Vdd |1     14| Vss
- E   RA5 |2     13| RA0 c1
- D   RA4 |3     12| RA1 A
-MCLR/RA3 |4     11| RA2 F
- DP  RC5 |5     10| RC0 B
- C   RC4 |6      9| RC1 c2
- G   RC3 |7      8| RC2 c3
-         ----------
-
-*/

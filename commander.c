@@ -82,6 +82,7 @@ uart1rx     (void)
             }
 
 // 3 char ascii to int '000'-'999' -> 0-999
+// ( cmd[3] is the input)
 // return -1 if any char not ascii number
 //.............................................................................
             int16_t
@@ -90,9 +91,9 @@ atoi3       (void)
             int16_t ret = 0;
             uint8_t i = 0;
             for( uint8_t mul = 100; ; i++ ){
-                uint8_t n = cmd[i] - '0';
-                if( n > 9 ) return -1;
-                ret += n * mul;
+                uint8_t v = cmd[i] - '0';   //v is unsigned
+                if( v > 9 ) return -1;      //so only '0'-'9' will pass
+                ret += v * mul;
                 if(mul == 1) break;
                 mul = mul == 10 ? 1 : 10;
             }
@@ -172,7 +173,8 @@ proc_cmd    (void)
             if( cmd[0] == 'B' ){
                 cmd[0] = '0'; //B63 -> 063
                 int16_t v = atoi3();
-                if( v < 0 || v > 63 ) return;
+                if( v < 0 ) return; //bad number
+                if( v > 63 ) v = 63; //if over max, set to max
                 if( addr_match(address.my) ) disp_bright( disp_DIGIT0, v );
                 if( addr_match(address.my+1) ) disp_bright( disp_DIGIT1, v );
                 if( addr_match(address.my+2) ) disp_bright( disp_DIGIT2, v );
@@ -186,10 +188,19 @@ proc_txt    (char c)
             {
             //TODO
             //take care of DP (show on previous digit)
-            if( addr_match(address.my) ) disp_ascii( disp_DIGIT0, c );
-            if( addr_match(address.my+1) ) disp_ascii( disp_DIGIT1, c );
-            if( addr_match(address.my+2) ) disp_ascii( disp_DIGIT2, c );
-            addr_inc();
+            if( c == '.' ){
+                //is dp, address already one ahead, so look for match+1
+                //and set dp of previous digit, do not inc address
+                if( addr_match(address.my+1) ) disp_dp( disp_DIGIT0 );
+                if( addr_match(address.my+2) ) disp_dp( disp_DIGIT1 );
+                if( addr_match(address.my+3) ) disp_dp( disp_DIGIT2 );
+                //do not inc addr
+            } else {
+                if( addr_match(address.my  ) ) disp_ascii( disp_DIGIT0, c );
+                if( addr_match(address.my+1) ) disp_ascii( disp_DIGIT1, c );
+                if( addr_match(address.my+2) ) disp_ascii( disp_DIGIT2, c );
+                addr_inc();
+            }
             }
 
 //.............................................................................
@@ -215,16 +226,6 @@ proc_raw    (char c)
             addr_inc();
             }
 
-//.............................................................................
-            void
-crlf        (void)
-            {
-            if( state == CMD3 ) proc_cmd();
-            else if( state == TXT || state == RAW1 ) disp_show();
-            address.current = address.origin;
-            state = mode == TEXT ? TXT : RAW1;
-            }
-
 
 //=============================================================================
             void
@@ -233,7 +234,7 @@ commander_init()
             //get display address (0, 3, 6, 9, 12, ..., 507)
             address.my = nvm_read( nvm_ID0 );
             if( address.my == 0x3FFF ){
-                uint32_t r = nvm_mui();
+                uint32_t r = nvm_mui(); //get factory muid
                 //turn 32bit number into 513-996
                 r = r % 484; //0-483
                 r += 513; //513-996
@@ -260,14 +261,33 @@ commander_init()
             void
 commander_go()
             {
+            //wait for rx
             while( rxinfo.head == rxinfo.tail );
-            char c = rxinfo.buf[ ++rxinfo.tail ];
-            if( rxinfo.tail >= sizeof( rxinfo.buf ) ) rxinfo.tail = 0;
 
-            if( c == CR || c == LF ){ crlf(); return; }
-            if( c == TAB && state != BAD ){ state = CMD0; return; };
+            //process rx byte from buffer
+            if( ++rxinfo.tail >= sizeof( rxinfo.buf ) ) rxinfo.tail = 0;
+            char c = rxinfo.buf[ rxinfo.tail ];
+
+            //cr/lf- process command or display text/raw data
+            //reset state to text or raw, reset address
+            if( c == CR || c == LF ){
+                if( state == CMD3 ) proc_cmd();
+                else if( state == TXT || state == RAW1 ) disp_show();
+                state = mode == TEXT ? TXT : RAW1;
+                address.current = address.origin;
+                return;
+            }
+
+            //start of command is tab char, only if not in bad state
+            if( c == TAB && state != BAD ){
+                state = CMD0;
+                return;
+            };
+
+            //ignore non ascii chars (could also make to cause bad state)
             if( c < ' ' || c > 127 ) return;
 
+            //rx char into command array, or process text/raw char
             switch( state ){
                 case CMD0: cmd[0] = c; state = CMD1; break;
                 case CMD1: cmd[1] = c; state = CMD2; break;

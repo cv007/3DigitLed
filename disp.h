@@ -20,7 +20,6 @@ disp_number (uint16_t);
             void
 disp_hex    (uint16_t);
             //display ascii to digit
-            //also returns data, can check if 0 (not displayable)
             uint8_t
 disp_ascii  (disp_digitn_t, char);
             //display raw data

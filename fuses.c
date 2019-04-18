@@ -8,7 +8,7 @@
 #pragma config FCMEN = OFF      // Fail-Safe Clock Monitor Enable bit (FSCM timer disabled)
 
 // CONFIG2
-#pragma config MCLRE = ON       // Master Clear Enable bit (MCLR pin is Master Clear function)
+#pragma config MCLRE = OFF //MCLRE = ON       // Master Clear Enable bit (MCLR pin is Master Clear function)
 #pragma config PWRTE = OFF      // Power-up Timer Enable bit (PWRT disabled)
 #pragma config LPBOREN = OFF    // Low-Power BOR enable bit (ULPBOR disabled)
 #pragma config BOREN = SBOREN   // Brown-out reset enable bits (Brown-out reset enabled according to SBOREN bit)
@@ -31,7 +31,7 @@
 #pragma config WRTB = OFF       // Boot Block Write Protection bit (Boot Block not write protected)
 #pragma config WRTC = OFF       // Configuration Register Write Protection bit (Configuration Register not write protected)
 #pragma config WRTSAF = OFF     // Storage Area Flash Write Protection bit (SAF not write protected)
-#pragma config LVP = ON         // Low Voltage Programming Enable bit (Low Voltage programming enabled. MCLR/Vpp pin function is MCLR.)
+#pragma config LVP = OFF //LVP = ON         // Low Voltage Programming Enable bit (Low Voltage programming enabled. MCLR/Vpp pin function is MCLR.)
 
 // CONFIG5
 #pragma config CP = OFF         // UserNVM Program memory code protection bit (UserNVM code protection disabled)
