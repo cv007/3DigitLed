@@ -154,7 +154,6 @@ proc_cmd    (void)
                 return;
             }
             if( 0 == strncmp ( (const char*)cmd, "VDD", 3 ) ){
-                //TODO
                 disp_clear();
                 disp_show(); //do adc with led's off
                 fvr_adc( fvr_ADC2X );
@@ -168,10 +167,11 @@ proc_cmd    (void)
                 disp_number( adcv );
                 disp_dp( disp_DIGIT0 );
                 disp_show();
+                return;
             }
             //brightness applies only to current address
             if( cmd[0] == 'B' ){
-                cmd[0] = '0'; //B63 -> 063
+                cmd[0] = '0'; //change 'B' to '0', B63 -> 063
                 int16_t v = atoi3();
                 if( v < 0 ) return; //bad number
                 if( v > 63 ) v = 63; //if over max, set to max

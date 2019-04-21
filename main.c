@@ -136,6 +136,7 @@ FF<cr>          //hex 0xFF - all segments on (8 bits, 8 segments)
 #include "disp.h"
 #include "commander.h"
 
+#pragma config IDLOC0 = 0; //set display address manually- 0,3,6,...
 
 // MAIN
 //=============================================================================

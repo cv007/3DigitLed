@@ -158,16 +158,14 @@ disp_bright (disp_digitn_t n, uint8_t v)
             m_digits[n].bright_buf = tables_bright[ v & 63 ];
             }
 
-// display ascii char to digit, if not a char that can be displayed
-// return value will be 0
+// display ascii char to digit
 //=============================================================================
-            uint8_t
+            void
 disp_ascii  (disp_digitn_t n, char c)
             {
-            if(c > 127 || c < 32) return 0;
-            uint8_t ret = tables_segment_ascii[c-32];
-            m_digits[n].segdata_buf = ret;
-            return ret;
+            if(c > 127 || c < 32) return;
+            uint8_t v = tables_segment_ascii[ c - 32 ];
+            m_digits[n].segdata_buf = v;
             }
 
 // display raw data to digit
