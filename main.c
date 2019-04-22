@@ -101,6 +101,23 @@ VDD - show display voltage - applies to addressed display
 
     <tab>VDD<cr>
 
+ OER - show overrun error count  - applies to all
+
+    <tab>OER<cr>
+
+ FER - show framing error count  - applies to all
+
+    <tab>FER<cr>
+
+ ID^ - reset id (address) - applies only to addressed display
+
+    <tab>ID^<cr>
+
+ ID! - set id (address) - applies only to addressed display
+       (uses 3 digit number previously set to display)
+
+    <tab>ID!<cr>
+
 
 examples
 ===============================================================================
@@ -136,7 +153,7 @@ FF<cr>          //hex 0xFF - all segments on (8 bits, 8 segments)
 #include "disp.h"
 #include "commander.h"
 
-#pragma config IDLOC0 = 0; //set display address manually- 0,3,6,...
+//#pragma config IDLOC0 = 0; //set display address manually- 0,3,6,...,507
 
 // MAIN
 //=============================================================================
@@ -169,9 +186,20 @@ void main(void) {
     //init commander
     commander_init();
 
+    for(;;){
+        //could also make the following function an infinite loop
+        //but its difficult to debug this chip when we are using the
+        //mclr pin for rx, so just continually call this function which
+        //will wait for an rx char, process it, and return the char here
+        //so we can take a look at it if needed
+        //also can add any other processing in this loop which we don't
+        //want in the commander.c file, if ever needed
+        commander_go();
+    }
+
     //testing
 
-
+    #if 0
     //display all brightness levels
 //     int8_t j = 1;
 //     for(uint8_t i = 0; ; ){
@@ -214,6 +242,7 @@ void main(void) {
             nco_restart( dly );
         }
     }
+    #endif
 
 
 }

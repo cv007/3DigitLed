@@ -15,7 +15,7 @@
             BAD
             }
 state_t;
-state_t state;
+state_t state = TXT;
 
             typedef enum
             {
@@ -29,6 +29,8 @@ mode_t mode = TEXT;
             uint16_t my;
             uint16_t origin;
             uint16_t current;
+            uint16_t uid;
+            uint8_t new[3]; //store ascii here, for setting new address
             }
 address_t;
 address_t address;
@@ -82,16 +84,15 @@ uart1rx     (void)
             }
 
 // 3 char ascii to int '000'-'999' -> 0-999
-// ( cmd[3] is the input)
 // return -1 if any char not ascii number
 //.............................................................................
             int16_t
-atoi3       (void)
+atoi3       (uint8_t* arr)
             {
             int16_t ret = 0;
             uint8_t i = 0;
             for( uint8_t mul = 100; ; i++ ){
-                uint8_t v = cmd[i] - '0';   //v is unsigned
+                uint8_t v = arr[i] - '0';   //v is unsigned
                 if( v > 9 ) return -1;      //so only '0'-'9' will pass
                 ret += v * mul;
                 if(mul == 1) break;
@@ -104,9 +105,8 @@ atoi3       (void)
             void
 addr_inc    (void)
             {
-            if( address.current < 510 && address.current != 999 ){
-                address.current++;
-            }
+            //999 does not inc, and don't let address get to 999
+            if( address.current < 998 ) address.current++;
             }
 
 //.............................................................................
@@ -124,25 +124,27 @@ proc_cmd    (void)
             <tab>000<cr> - set address 000-999 - applies to all
             <tab>TXT<cr> - text mode (ascii)  - applies to all
             <tab>RAW<cr> - raw mode (segment data)  - applies to all
-            <tab>B63<cr> - brightness 00-63  - applies to address
+            <tab>B63<cr> - brightness 00-63  - applies only to addressed digit
             <tab>RST<cr> - reset all displays (hardware reset)  - applies to all
             <tab>ID?<cr> - show display id (address)  - applies to all
             <tab>VDD<cr> - show voltage  - applies to all
+            <tab>OER<cr> - show overrun error count  - applies to all
+            <tab>FER<cr> - show framing error count  - applies to all
+
+            <tab>ID^<cr> - reset id (address) - applies only to addressed display
             */
 
             if( cmd[0] >= '0' && cmd[0] <= '9' ){
-                int16_t v = atoi3();
+                int16_t v = atoi3(cmd);
                 if( v >= 0 ) address.origin = v;
                 return;
             }
             if( 0 == strncmp ( (const char*)cmd, "TXT", 3 ) ){
                 mode = TEXT;
-                state = TXT;
                 return;
             }
             if( 0 == strncmp ( (const char*)cmd, "RAW", 3 ) ){
                 mode = RAW;
-                state = RAW1;
                 return;
             }
             if( 0 == strncmp ( (const char*)cmd, "RST", 3 ) ){
@@ -169,16 +171,42 @@ proc_cmd    (void)
                 disp_show();
                 return;
             }
+            if( 0 == strncmp ( (const char*)cmd, "OER", 3 ) ){
+                disp_number( rxinfo.oerr_count );
+                disp_show();
+                return;
+            }
+            if( 0 == strncmp ( (const char*)cmd, "FER", 3 ) ){
+                disp_number( rxinfo.ferr_count );
+                disp_show();
+                return;
+            }
             //brightness applies only to current address
             if( cmd[0] == 'B' ){
                 cmd[0] = '0'; //change 'B' to '0', B63 -> 063
-                int16_t v = atoi3();
+                int16_t v = atoi3(cmd);
                 if( v < 0 ) return; //bad number
                 if( v > 63 ) v = 63; //if over max, set to max
                 if( addr_match(address.my) ) disp_bright( disp_DIGIT0, v );
                 if( addr_match(address.my+1) ) disp_bright( disp_DIGIT1, v );
                 if( addr_match(address.my+2) ) disp_bright( disp_DIGIT2, v );
                 disp_show();
+                return;
+            }
+            if( 0 == strncmp ( (const char*)cmd, "ID^", 3 ) ){
+                //has to match digit0 address
+                if( ! addr_match(address.my) ) return;
+                nvm_writeW( nvm_ID0, 0x3FFF ); //erase
+                RESET(); //and reset (which will flash address)
+            }
+            if( 0 == strncmp ( (const char*)cmd, "ID!", 3 ) ){
+                //has to match digit0 address
+                if( ! addr_match(address.my) ) return;
+                int16_t a = atoi3( address.new ); //get number previously displayed
+                if( a >= 0 && a <= 507 && (a % 3 == 0) && address.current != 999 ){
+                    nvm_writeW( nvm_ID0, a );
+                }
+                RESET();
             }
             }
 
@@ -186,7 +214,6 @@ proc_cmd    (void)
             void
 proc_txt    (char c)
             {
-            //TODO
             //take care of DP (show on previous digit)
             if( c == '.' ){
                 //is dp, address already one ahead, so look for match+1
@@ -196,9 +223,18 @@ proc_txt    (char c)
                 if( addr_match(address.my+3) ) disp_dp( disp_DIGIT2 );
                 //do not inc addr
             } else {
-                if( addr_match(address.my  ) ) disp_ascii( disp_DIGIT0, c );
-                if( addr_match(address.my+1) ) disp_ascii( disp_DIGIT1, c );
-                if( addr_match(address.my+2) ) disp_ascii( disp_DIGIT2, c );
+                if( addr_match(address.my  ) ){
+                    disp_ascii( disp_DIGIT0, c );
+                    address.new[0] = c; //also store to set new address
+                }
+                if( addr_match(address.my+1) ){
+                    disp_ascii( disp_DIGIT1, c );
+                    address.new[1] = c;
+                }
+                if( addr_match(address.my+2) ){
+                    disp_ascii( disp_DIGIT2, c );
+                    address.new[2] = c;
+                }
                 addr_inc();
             }
             }
@@ -209,12 +245,13 @@ proc_raw    (char c)
             {
             static uint8_t dat;
 
-            if( c >= '0' && c <= '9' ) c -= '0';
-            else if( c >= 'A' && c <= 'F' ) c -= 'A' + 10;
-            if( c > 15 ){ state = BAD; return; }
+            if( c >= '0' && c <= '9' ){ c -= '0'; }
+            else if( c >= 'A' && c <= 'F' ){ c = c - 'A' + 10; }
+            else if( c >= 'a' && c <= 'f' ){ c = c - 'a' + 10; }
+            else { state = BAD; return; }
 
             if( state == RAW1 ){
-                dat = c<<8;
+                dat = c<<4;
                 state = RAW2;
                 return;
             }
@@ -231,22 +268,24 @@ proc_raw    (char c)
             void
 commander_init()
             {
-            //get display address (0, 3, 6, 9, 12, ..., 507)
+            //get stored display address (0, 3, 6, 9, 12, ..., 507)
             address.my = nvm_read( nvm_ID0 );
-            if( address.my == 0x3FFF ){
-                uint32_t r = nvm_mui(); //get factory muid
-                //turn 32bit number into 513-996
-                r = r % 484; //0-483
-                r += 513; //513-996
-                r = r - (r % 3); //and make divisable by 3
-                address.my = r;
-            }
 
-            //display my address if not a user set address
-            if( address.my > 512 ){
+            //make unique id from muid (if no id set in ID0)
+            uint32_t r = nvm_mui(); //get factory muid
+            //turn 32bit number into 513-996
+            r = r % 484; //0-483
+            r += 513; //513-996
+            r = r - (r % 3); //and make divisable by 3
+            address.uid = r;
+
+            //if no address stored, use uid address
+            //and show in on power up as reminder to set address
+            if( address.my == 0x3FFF ){
+                address.my = address.uid;
                 disp_number( address.my );
                 disp_show();
-                disp_blink( 9, 333 );
+                disp_blink( 5, 333 );
             }
 
             //setup uart1
@@ -258,7 +297,7 @@ commander_init()
 
 // continually call from main
 //=============================================================================
-            void
+            char //void
 commander_go()
             {
             //wait for rx
@@ -271,21 +310,25 @@ commander_go()
             //cr/lf- process command or display text/raw data
             //reset state to text or raw, reset address
             if( c == CR || c == LF ){
-                if( state == CMD3 ) proc_cmd();
-                else if( state == TXT || state == RAW1 ) disp_show();
+                if( state == CMD3 ){
+                    proc_cmd();
+                }
+                else if( state == TXT || state == RAW1 ){
+                    disp_show();
+                }
                 state = mode == TEXT ? TXT : RAW1;
                 address.current = address.origin;
-                return;
+                return c;
             }
 
             //start of command is tab char, only if not in bad state
             if( c == TAB && state != BAD ){
                 state = CMD0;
-                return;
+                return c;
             };
 
             //ignore non ascii chars (could also make to cause bad state)
-            if( c < ' ' || c > 127 ) return;
+            if( c < ' ' || c > 127 ) return c;
 
             //rx char into command array, or process text/raw char
             switch( state ){
@@ -298,5 +341,6 @@ commander_go()
                 case RAW2: proc_raw(c); break;
                 case BAD: break; //need CR LF to exit this state
             }
+            return c;
             }
 

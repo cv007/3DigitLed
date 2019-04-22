@@ -92,8 +92,9 @@ uart1_isr   (void)
                 PIR3bits.RC1IF = 0;
                 if( isrfprx ) isrfprx();
             }
-            if(PIE3bits.TX1IE && PIR3bits.TX1IF){
-                PIR3bits.TX1IF = 0;
-                if( isrfptx ) isrfptx();
-            }
+            //TX unused
+            //if(PIE3bits.TX1IE && PIR3bits.TX1IF){
+            //    PIR3bits.TX1IF = 0;
+            //    if( isrfptx ) isrfptx();
+            //}
             }

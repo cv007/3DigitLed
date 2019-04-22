@@ -5,7 +5,7 @@
             void
 commander_init(void);
 
-            void
+            char //void
 commander_go(void);
 
 
