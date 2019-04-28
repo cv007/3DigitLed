@@ -101,20 +101,30 @@ VDD - show display voltage - applies to addressed display
 
     <tab>VDD<cr>
 
- OER - show overrun error count  - applies to all
+
+OER - show overrun error count  - applies to all
 
     <tab>OER<cr>
 
- FER - show framing error count  - applies to all
+
+FER - show framing error count  - applies to all
 
     <tab>FER<cr>
 
- ID^ - reset id (address) - applies only to addressed display
+
+ID^ - reset id (address) - applies only to addressed display
 
     <tab>ID^<cr>
 
- ID! - set id (address) - applies only to addressed display
+
+ID! - set id (address) - applies only to addressed display
        (uses 3 digit number previously set to display)
+       something like-
+       <tab>858<cr> - set address of first digit of display to change
+       000<cr> - this will be the new address of the display
+       <tab>ID!<cr> - set address
+       display will reboot
+       new display address will need to be 000,003,006,...,507
 
     <tab>ID!<cr>
 

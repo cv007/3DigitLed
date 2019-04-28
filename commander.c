@@ -132,6 +132,8 @@ proc_cmd    (void)
             <tab>FER<cr> - show framing error count  - applies to all
 
             <tab>ID^<cr> - reset id (address) - applies only to addressed display
+            <tab>ID!<cr> - set id (address) - applies only to addressed display
+                           (uses 3 digit number previously set to display)
             */
 
             if( cmd[0] >= '0' && cmd[0] <= '9' ){
