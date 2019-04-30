@@ -1,3 +1,18 @@
+/*
+ TODO
+ change ID^ (ID reset) to only apply to addressed display
+ change default address to use random instead of muid
+ for assigning permenant address
+ (so if there happens to be an address duplicated from muid, even though
+  slim chance- 1 in about 166, can simply ID^ to conflicting address and
+  each will get another 'random' address before assigning)
+
+ maybe allow baud change- (default is 19200)
+ U38, U64, U15
+ change baud, if framing errors switch back to default
+
+ */
+
 /*------------------------------------------------------------------------------
  ___  _  _  ___  ___
 |_ _|| \| || __|/ _ \
