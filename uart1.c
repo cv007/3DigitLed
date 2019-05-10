@@ -18,6 +18,7 @@ uart1_deinit(void)
 uart1_init  (uint32_t baud)
             {
             pmd_reset( pmd_UART1 );
+            pmd_on( pmd_FOSC );
             uart1_baud( baud );
             }
 
@@ -62,8 +63,8 @@ static void (*isrfptx)(void) = 0;
             void
 uart1_txirqon(bool tf, void(*fp)(void))
             {
-            PIE3bits.TX1IE = tf;                //enable/disable irq
             isrfptx = fp;
+            PIE3bits.TX1IE = tf;                //enable/disable irq
             if( tf ){
                 INTCONbits.PEIE = 1;            //also need peie
                 INTCONbits.GIE = 1;             //and global irq
@@ -74,10 +75,8 @@ uart1_txirqon(bool tf, void(*fp)(void))
             void
 uart1_rxirqon(bool tf, void(*fp)(void))
             {
-            PIR3bits.RC1IF = 0;
-            PIE3bits.RC1IE = tf;                //enable/disable irq
-            PIR3bits.RC1IF = 0;
             isrfprx = fp;
+            PIE3bits.RC1IE = tf;                //enable/disable irq
             if( tf ){
                 INTCONbits.PEIE = 1;            //also need peie
                 INTCONbits.GIE = 1;             //and global irq
