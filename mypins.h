@@ -11,7 +11,7 @@
 
 // make _all_pins[] a little nicer to define
 // PIN(A,5) instead of pin_A, pin_5, 1<<pin_5, ... (see pin_t definition)
-#define PIN(pt,pn) pin_##pt, pin_##pn, 1<<pin_##pn
+#define PIN(pt,pn) port_##pt, pin_##pn, 1<<pin_##pn
 
 pin_t _allpins[] = {
 //.............................................................SETUP PINS......

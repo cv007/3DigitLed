@@ -276,9 +276,7 @@ commander_init()
             //make unique id from muid (if no id set in ID0)
             uint32_t r = nvm_mui(); //get factory muid
             //turn 32bit number into 513-996
-            r = r % 484; //0-483
-            r += 513; //513-996
-            r = r - (r % 3); //and make divisable by 3
+            r = (r % 484) + 513; //513-996
             address.uid = r;
 
             //if no address stored, use uid address

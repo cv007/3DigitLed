@@ -7,7 +7,7 @@
             // port letter
             typedef enum
             {
-            pin_A, pin_B, pin_C
+            port_A, port_B, port_C
             }
 port_t;
 
